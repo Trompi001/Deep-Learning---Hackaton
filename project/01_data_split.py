@@ -115,13 +115,27 @@ def parse_args():
 		default="../data/zürich/split/",
 		help="Output-Ordner fuer train/val/test (Standard: ../data/zürich/split/)",
 	)
+	parser.add_argument(
+		"--splits",
+		type=float,
+		nargs=3,
+		default=[0.7, 0.15, 0.15],
+		metavar=("TRAIN", "VAL", "TEST"),
+		help="Split-Ratios fuer train/val/test (Standard: 0.7 0.15 0.15)",
+	)
+	parser.add_argument(
+		"--seed",
+		type=int,
+		default=42,
+		help="Zufalls-Seed fuer reproduzierbaren Split (Standard: 42)",
+	)
 	return parser.parse_args()
 
 
 def main():
 	args = parse_args()
 
-	splits = (0.7, 0.15, 0.15)
+	splits = tuple(args.splits)
 	if abs(sum(splits) - 1.0) > 1e-9:
 		raise ValueError(f"Split-Ratios muessen 1.0 ergeben, aktuell: {splits}")
 
@@ -134,15 +148,13 @@ def main():
 	if not pos_dir.exists() or not pos_dir.is_dir():
 		raise FileNotFoundError(f"Positiv-Ordner existiert nicht oder ist kein Ordner: {pos_dir}")
 
-	seed = 42
-
 	output_dir.mkdir(parents=True, exist_ok=True)
 	split_dataset(
 		neg_dir=neg_dir,
 		pos_dir=pos_dir,
 		output_dir=output_dir,
 		splits=splits,
-		seed=seed,
+		seed=args.seed,
 	)
 
 
