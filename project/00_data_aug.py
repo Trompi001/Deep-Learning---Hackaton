@@ -1,9 +1,10 @@
 import argparse
 from pathlib import Path
-
+from tqdm import tqdm
 import torch
 from torchvision.io import read_image
 from torchvision.transforms import v2
+from torchvision.transforms.v2 import functional as F
 from torchvision.utils import save_image
 
 
@@ -23,24 +24,22 @@ def build_augmentations():
         v2.ToImage(),
         v2.ToDtype(torch.float32, scale=True),
     ]
+
+    def rot(deg):
+        return v2.Lambda(lambda img: F.rotate(img, deg))
+
+    def hflip():
+        return v2.Lambda(lambda img: F.hflip(img))
+
     return [
-        ("rot0", v2.Compose(base)),
-        ("rot0_hflip", v2.Compose([v2.RandomHorizontalFlip(p=1.0), *base])),
-        ("rot90", v2.Compose([v2.RandomRotation((90, 90)), *base])),
-        (
-            "rot90_hflip",
-            v2.Compose([v2.RandomRotation((90, 90)), v2.RandomHorizontalFlip(p=1.0), *base]),
-        ),
-        ("rot180", v2.Compose([v2.RandomRotation((180, 180)), *base])),
-        (
-            "rot180_hflip",
-            v2.Compose([v2.RandomRotation((180, 180)), v2.RandomHorizontalFlip(p=1.0), *base]),
-        ),
-        ("rot270", v2.Compose([v2.RandomRotation((270, 270)), *base])),
-        (
-            "rot270_hflip",
-            v2.Compose([v2.RandomRotation((270, 270)), v2.RandomHorizontalFlip(p=1.0), *base]),
-        ),
+        ("rot0",         v2.Compose([*base])),
+        ("rot0_hflip",   v2.Compose([*base, hflip()])),
+        ("rot90",        v2.Compose([*base, rot(90)])),
+        ("rot90_hflip",  v2.Compose([*base, rot(90),  hflip()])),
+        ("rot180",       v2.Compose([*base, rot(180)])),
+        ("rot180_hflip", v2.Compose([*base, rot(180), hflip()])),
+        ("rot270",       v2.Compose([*base, rot(270)])),
+        ("rot270_hflip", v2.Compose([*base, rot(270), hflip()])),
     ]
 
 
@@ -53,7 +52,7 @@ def augment_dataset(input_dir: Path, output_dir: Path) -> None:
         return
 
     total_saved = 0
-    for img_path in image_paths:
+    for img_path in tqdm(image_paths, desc="Augmentiere Bilder", unit="Bild"): #Fortschrittbalkem mit tqdm
         rel_parent = img_path.relative_to(input_dir).parent
         target_dir = output_dir / rel_parent
         target_dir.mkdir(parents=True, exist_ok=True)
