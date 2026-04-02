@@ -127,13 +127,16 @@ def run_epoch(
     device: torch.device,
     optimizer: optim.Optimizer | None = None,
     max_batches: int | None = None,
-) -> tuple[float, float]:
+) -> tuple[float, float, float, float]:
     is_train = optimizer is not None
     model.train(is_train)
 
     total_loss = 0.0
     total_correct = 0
     total_samples = 0
+    true_positives = 0
+    false_positives = 0
+    false_negatives = 0
 
     for batch_idx, (images, labels) in enumerate(loader):
         if max_batches is not None and batch_idx >= max_batches:
@@ -154,16 +157,24 @@ def run_epoch(
 
         preds = torch.argmax(logits, dim=1)
         total_correct += (preds == labels).sum().item()
+
+        # Binäre Metriken für positive Klasse "y" (Index 1)
+        true_positives += ((preds == 1) & (labels == 1)).sum().item()
+        false_positives += ((preds == 1) & (labels == 0)).sum().item()
+        false_negatives += ((preds == 0) & (labels == 1)).sum().item()
+
         batch_size = labels.size(0)
         total_samples += batch_size
         total_loss += loss.item() * batch_size
 
     if total_samples == 0:
-        return 0.0, 0.0
+        return 0.0, 0.0, 0.0, 0.0
 
     avg_loss = total_loss / total_samples
     accuracy = total_correct / total_samples
-    return avg_loss, accuracy
+    recall = true_positives / (true_positives + false_negatives + 1e-12)
+    f1 = (2 * true_positives) / (2 * true_positives + false_positives + false_negatives + 1e-12)
+    return avg_loss, accuracy, recall, f1
 
 
 def plot_learning_curves(history: dict[str, list[float]], output_path: Path) -> None:
@@ -315,7 +326,7 @@ def main() -> None:
     max_batches = None if args.max_train_batches <= 0 else args.max_train_batches
 
     for epoch in range(1, args.epochs + 1):
-        train_loss, train_acc = run_epoch(
+        train_loss, train_acc, train_recall, train_f1 = run_epoch(
             model=model,
             loader=train_loader,
             criterion=criterion,
@@ -324,7 +335,7 @@ def main() -> None:
             max_batches=max_batches,
         )
         with torch.no_grad():
-            val_loss, val_acc = run_epoch(
+            val_loss, val_acc, val_recall, val_f1 = run_epoch(
                 model=model,
                 loader=val_loader,
                 criterion=criterion,
@@ -338,8 +349,10 @@ def main() -> None:
 
         print(
             f"Epoch {epoch:02d}/{args.epochs} | "
-            f"train_loss={train_loss:.4f}, train_acc={train_acc:.4f} | "
-            f"val_loss={val_loss:.4f}, val_acc={val_acc:.4f}"
+            f"train_loss={train_loss:.4f}, train_acc={train_acc:.4f}, "
+            f"train_recall={train_recall:.4f}, train_f1={train_f1:.4f} | "
+            f"val_loss={val_loss:.4f}, val_acc={val_acc:.4f}, "
+            f"val_recall={val_recall:.4f}, val_f1={val_f1:.4f}"
         )
 
         if val_loss < best_val_loss:
@@ -353,13 +366,16 @@ def main() -> None:
     model.load_state_dict(torch.load(model_out, map_location=device))
     model.eval()
     with torch.no_grad():
-        test_loss, test_acc = run_epoch(
+        test_loss, test_acc, test_recall, test_f1 = run_epoch(
             model=model,
             loader=test_loader,
             criterion=criterion,
             device=device,
         )
-    print(f'Test: loss={test_loss:.4f}, accuracy={test_acc:.4f}')
+    print(
+        f'Test: loss={test_loss:.4f}, accuracy={test_acc:.4f}, '
+        f'recall={test_recall:.4f}, f1={test_f1:.4f}'
+    )
 
     class_names = [name for name, _ in sorted(class_to_idx.items(), key=lambda kv: kv[1])]
     save_confusion_matrix(model, test_loader, device, cm_out, class_names)

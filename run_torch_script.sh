@@ -13,4 +13,6 @@
 
 script_name="project/02_train_model.py" # Hier kann der Name des Skriptes ausgetauscht werden. Alternativ kann hier auch ein absoluter Pfad zum Skript angegeben werden.
 
-conda run -n torch python3 "$script_name" -v
+# Live-Logs: conda darf nicht capturen, Python schreibt ungepuffert.
+export PYTHONUNBUFFERED=1
+conda run --no-capture-output -n torch python3 -u "$script_name"
