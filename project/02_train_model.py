@@ -15,7 +15,7 @@ from torchvision import datasets, transforms
 SEED = 42
 EPOCHS = 10
 LEARNING_RATE = 1e-3
-MAX_TRAIN_BATCHES_PER_EPOCH = 30
+MAX_TRAIN_BATCHES_PER_EPOCH = 0
 PLOT_PATH = Path('plot/model_training_learning_curve.png')
 
 def get_device() -> torch.device:
@@ -77,7 +77,6 @@ def build_dataloaders(
     train_tf = transforms.Compose(
         [
             transforms.Resize((image_size, image_size)),
-            transforms.RandomHorizontalFlip(p=0.5),
             transforms.ToTensor(),
         ]
     )

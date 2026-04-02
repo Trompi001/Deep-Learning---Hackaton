@@ -11,6 +11,6 @@
 #SBATCH --gpus=a100:1	 ## Die Anzahl GPUs (hier eine GPU, mit der Syntax :1)
 
 
-script_name="project/00_data_aug.py" # Hier kann der Name des Skriptes ausgetauscht werden. Alternativ kann hier auch ein absoluter Pfad zum Skript angegeben werden.
+script_name="project/02_train_model.py" # Hier kann der Name des Skriptes ausgetauscht werden. Alternativ kann hier auch ein absoluter Pfad zum Skript angegeben werden.
 
-conda run -n torch python3 "$script_name"
+conda run -n torch python3 "$script_name" -v
