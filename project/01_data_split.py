@@ -86,7 +86,7 @@ def split_dataset(
 
 	print("Split abgeschlossen.")
 	print(f"Negativ (n): {len(neg_paths)} Bilder")
-	print(f"Positiv (aug_y -> y): {len(pos_paths)} Bilder")
+	print(f"Positiv (y): {len(pos_paths)} Bilder")
 	print(f"Train: {totals['train']} Bilder")
 	print(f"Val:   {totals['val']} Bilder")
 	print(f"Test:  {totals['test']} Bilder")
@@ -95,7 +95,7 @@ def split_dataset(
 
 def parse_args():
 	parser = argparse.ArgumentParser(
-		description="Splittet Bilder aus n (negativ) und aug_y (positiv) in train/val/test."
+		description="Splittet Bilder aus n (negativ) und y (positiv) in train/val/test."
 	)
 	parser.add_argument(
 		"--neg-dir",
@@ -106,8 +106,8 @@ def parse_args():
 	parser.add_argument(
 		"--pos-dir",
 		type=str,
-		default="../data/zürich/aug_y/",
-		help="Ordner mit positiv gelabelten Bildern (Standard: ../data/zürich/aug_y/)",
+		default="../data/zürich/y/",
+		help="Ordner mit positiv gelabelten Bildern (Standard: ../data/zürich/y/)",
 	)
 	parser.add_argument(
 		"--output-dir",

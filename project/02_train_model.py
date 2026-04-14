@@ -8,12 +8,15 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
+from torchvision.transforms import functional as TF
 
 # Basis-Konfiguration
 SEED = 42
-EPOCHS = 10
+EPOCHS = 20
+BATCH_SIZE = 128
+POSITIVE_MULTIPLIER = 4
 LEARNING_RATE = 1e-3
 MAX_TRAIN_BATCHES_PER_EPOCH = 0
 PLOT_PATH = Path('plot/model_training_learning_curve.png')
@@ -73,10 +76,21 @@ def build_dataloaders(
     image_size: int,
     batch_size: int,
     num_workers: int,
+    positive_multiplier: int,
 ) -> tuple[DataLoader, DataLoader, DataLoader, dict[str, int]]:
+    rotate_choices = transforms.RandomChoice(
+        [
+            transforms.Lambda(lambda img: TF.rotate(img, 0)),
+            transforms.Lambda(lambda img: TF.rotate(img, 90)),
+            transforms.Lambda(lambda img: TF.rotate(img, 180)),
+            transforms.Lambda(lambda img: TF.rotate(img, 270)),
+        ]
+    )
     train_tf = transforms.Compose(
         [
             transforms.Resize((image_size, image_size)),
+            rotate_choices,
+            transforms.RandomHorizontalFlip(p=0.5),
             transforms.ToTensor(),
         ]
     )
@@ -91,10 +105,23 @@ def build_dataloaders(
     val_ds = datasets.ImageFolder(data_root / 'val', transform=eval_tf)
     test_ds = datasets.ImageFolder(data_root / 'test', transform=eval_tf)
 
-    if set(train_ds.class_to_idx.keys()) != {'n', 'y'}:
+    class_to_idx = train_ds.class_to_idx
+
+    if set(class_to_idx.keys()) != {'n', 'y'}:
         raise ValueError(
-            f"Erwartete Klassenordner {{'n', 'y'}}, gefunden: {set(train_ds.class_to_idx.keys())}"
+            f"Erwartete Klassenordner {{'n', 'y'}}, gefunden: {set(class_to_idx.keys())}"
         )
+
+    if positive_multiplier < 1:
+        raise ValueError('positive_multiplier muss >= 1 sein.')
+
+    positive_idx = class_to_idx['y']
+    expanded_indices: list[int] = []
+    for sample_idx, (_, class_idx) in enumerate(train_ds.samples):
+        repeat = positive_multiplier if class_idx == positive_idx else 1
+        expanded_indices.extend([sample_idx] * repeat)
+
+    train_ds = Subset(train_ds, expanded_indices)
 
     train_loader = DataLoader(
         train_ds,
@@ -117,7 +144,7 @@ def build_dataloaders(
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
     )
-    return train_loader, val_loader, test_loader, train_ds.class_to_idx
+    return train_loader, val_loader, test_loader, class_to_idx
 
 
 def run_epoch(
@@ -252,7 +279,13 @@ def parse_args():
         help='Pfad zum Split-Ordner mit train/val/test.',
     )
     parser.add_argument('--epochs', type=int, default=EPOCHS, help='Anzahl Trainings-Epochen.')
-    parser.add_argument('--batch-size', type=int, default=64, help='Batch-Größe.')
+    parser.add_argument('--batch-size', type=int, default=BATCH_SIZE, help='Batch-Größe.')
+    parser.add_argument(
+        '--positive-multiplier',
+        type=int,
+        default=POSITIVE_MULTIPLIER,
+        help='Wie oft positive Samples (Klasse y) im Training wiederholt werden.',
+    )
     parser.add_argument('--lr', type=float, default=LEARNING_RATE, help='Lernrate.')
     parser.add_argument('--image-size', type=int, default=128, help='Bildgröße (quadratisch).')
     parser.add_argument(
@@ -310,10 +343,13 @@ def main() -> None:
         image_size=args.image_size,
         batch_size=args.batch_size,
         num_workers=max(0, args.num_workers),
+        positive_multiplier=args.positive_multiplier,
     )
+    train_base_size = len(train_loader.dataset.dataset) if isinstance(train_loader.dataset, Subset) else len(train_loader.dataset)
     print(f'Klassen-Mapping: {class_to_idx}')
     print(
-        f"Datensätze: train={len(train_loader.dataset)}, "
+        f"Datensätze: train={len(train_loader.dataset)} (basis={train_base_size}, "
+        f"positive_multiplier={args.positive_multiplier}), "
         f"val={len(val_loader.dataset)}, test={len(test_loader.dataset)}"
     )
 

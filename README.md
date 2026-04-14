@@ -102,8 +102,8 @@ Nach erfolgreichem Training:
 
 ## Aktuelle Datensatzgrößen (Beispiel)
 
-- Negativ (`n`): 44261 Bilder
-- Positiv (`aug_y -> y`): 17112 Bilder
-- Train: 42960 Bilder
-- Val: 9205 Bilder
-- Test: 9208 Bilder
+- Negativ (`n`): 44234 Bilder
+- Positiv (`y`): 2166 Bilder
+- Train: 32479 Bilder
+- Val: 6959 Bilder
+- Test: 6962 Bilder
