@@ -14,11 +14,13 @@ from torchvision.transforms import functional as TF
 
 # Basis-Konfiguration
 SEED = 42
-EPOCHS = 20
+EPOCHS = 100
 BATCH_SIZE = 128
 POSITIVE_MULTIPLIER = 4
 LEARNING_RATE = 1e-3
 MAX_TRAIN_BATCHES_PER_EPOCH = 0
+EARLY_STOPPING_PATIENCE = 6
+EARLY_STOPPING_MIN_DELTA = 1e-4
 PLOT_PATH = Path('plot/model_training_learning_curve.png')
 
 def get_device() -> torch.device:
@@ -301,6 +303,18 @@ def parse_args():
         help='Limit der Train-Batches pro Epoche (<=0 = kein Limit).',
     )
     parser.add_argument(
+        '--early-stopping-patience',
+        type=int,
+        default=EARLY_STOPPING_PATIENCE,
+        help='Anzahl Epochen ohne ausreichende Val-Loss-Verbesserung bis Stopp (<=0 = deaktiviert).',
+    )
+    parser.add_argument(
+        '--early-stopping-min-delta',
+        type=float,
+        default=EARLY_STOPPING_MIN_DELTA,
+        help='Minimale Val-Loss-Verbesserung, die als Fortschritt gilt.',
+    )
+    parser.add_argument(
         '--model-out',
         type=str,
         default='models/cnn_zurich_best.pt',
@@ -359,6 +373,7 @@ def main() -> None:
 
     history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': []}
     best_val_loss = float('inf')
+    epochs_without_improvement = 0
     max_batches = None if args.max_train_batches <= 0 else args.max_train_batches
 
     for epoch in range(1, args.epochs + 1):
@@ -391,9 +406,24 @@ def main() -> None:
             f"val_recall={val_recall:.4f}, val_f1={val_f1:.4f}"
         )
 
-        if val_loss < best_val_loss:
+        if val_loss < (best_val_loss - args.early_stopping_min_delta):
             best_val_loss = val_loss
+            epochs_without_improvement = 0
             torch.save(model.state_dict(), model_out)
+        else:
+            epochs_without_improvement += 1
+            if args.early_stopping_patience > 0:
+                print(
+                    f'Keine ausreichende Verbesserung der Val-Loss seit '
+                    f'{epochs_without_improvement} Epoche(n) '
+                    f'(patience={args.early_stopping_patience}).'
+                )
+                if epochs_without_improvement >= args.early_stopping_patience:
+                    print(
+                        f'Early Stopping nach Epoche {epoch}: '
+                        f'best_val_loss={best_val_loss:.4f}'
+                    )
+                    break
 
     print(f'Bestes Modell gespeichert unter: {model_out}')
     plot_learning_curves(history, plot_out)
