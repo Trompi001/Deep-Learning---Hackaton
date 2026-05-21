@@ -100,20 +100,20 @@ def parse_args():
 	parser.add_argument(
 		"--neg-dir",
 		type=str,
-		default="../data/winterthur/n/",
-		help="Ordner mit negativ gelabelten Bildern (Standard: ../data/winterthur/n/)",
+		default="../data/zürich/n/",
+		help="Ordner mit negativ gelabelten Bildern (Standard: ../data/zürich/n/)",
 	)
 	parser.add_argument(
 		"--pos-dir",
 		type=str,
-		default="../data/winterthur/y/",
-		help="Ordner mit positiv gelabelten Bildern (Standard: ../data/winterthur/y/)",
+		default="../data/zürich/y/",
+		help="Ordner mit positiv gelabelten Bildern (Standard: ../data/zürich/y/)",
 	)
 	parser.add_argument(
 		"--output-dir",
 		type=str,
-		default="../data/winterthur/split/",
-		help="Output-Ordner fuer train/val/test (Standard: ../data/winterthur/split/)",
+		default="../data/zürich/split/",
+		help="Output-Ordner fuer train/val/test (Standard: ../data/zürich/split/)",
 	)
 	parser.add_argument(
 		"--splits",
