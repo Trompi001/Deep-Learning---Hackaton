@@ -19,8 +19,8 @@ BATCH_SIZE = 128
 POSITIVE_MULTIPLIER = 4
 LEARNING_RATE = 1e-3
 MAX_TRAIN_BATCHES_PER_EPOCH = 0
-EARLY_STOPPING_PATIENCE = 6
-EARLY_STOPPING_MIN_DELTA = 1e-4
+EARLY_STOPPING_PATIENCE = 10
+EARLY_STOPPING_MIN_DELTA = 1e-6
 PLOT_PATH = Path('plot/model_training_learning_curve.png')
 
 def get_device() -> torch.device:
@@ -232,6 +232,46 @@ def plot_learning_curves(history: dict[str, list[float]], output_path: Path) -> 
     plt.close(fig)
 
 
+def save_confusion_matrix(
+    model: nn.Module,
+    loader: DataLoader,
+    device: torch.device,
+    output_path: Path,
+    class_names: list[str],
+) -> None:
+    model.eval()
+    cm = torch.zeros((2, 2), dtype=torch.int64)
+
+    with torch.no_grad():
+        for images, labels in loader:
+            images = images.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
+            preds = torch.argmax(model(images), dim=1)
+            for truth, pred in zip(labels.view(-1), preds.view(-1)):
+                cm[truth.long(), pred.long()] += 1
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(5, 4))
+    cm_np = cm.cpu().numpy()
+    image = ax.imshow(cm_np, cmap='Blues')
+    fig.colorbar(image, ax=ax)
+    ax.set_xticks(range(len(class_names)))
+    ax.set_yticks(range(len(class_names)))
+    ax.set_xticklabels(class_names)
+    ax.set_yticklabels(class_names)
+    for i in range(cm_np.shape[0]):
+        for j in range(cm_np.shape[1]):
+            value = cm_np[i, j]
+            text_color = 'white' if value > cm_np.max() / 2 else 'black'
+            ax.text(j, i, f'{value:d}', ha='center', va='center', color=text_color)
+    ax.set_xlabel('Vorhersage')
+    ax.set_ylabel('Wahrheit')
+    ax.set_title('Confusion Matrix (Test)')
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Trainiert ein CNN auf dem Zürich-Split-Datensatz.')
     parser.add_argument(
@@ -286,6 +326,12 @@ def parse_args():
         default=str(PLOT_PATH),
         help='Output-Pfad für Lernkurven-Plot.',
     )
+    parser.add_argument(
+        '--cm-out',
+        type=str,
+        default='plot/test_confusion_matrix.png',
+        help='Output-Pfad für Confusion Matrix.',
+    )
     parser.add_argument('--seed', type=int, default=SEED, help='Zufalls-Seed.')
     return parser.parse_args()
 
@@ -300,6 +346,7 @@ def main() -> None:
 
     model_out = resolve_from_script_dir(args.model_out)
     plot_out = resolve_from_script_dir(args.plot_out)
+    cm_out = resolve_from_script_dir(args.cm_out)
     model_out.parent.mkdir(parents=True, exist_ok=True)
 
     device = get_device()
@@ -391,10 +438,14 @@ def main() -> None:
             criterion=criterion,
             device=device,
         )
+    idx_to_class = {idx: name for name, idx in class_to_idx.items()}
+    class_names = [idx_to_class[i] for i in range(len(idx_to_class))]
+    save_confusion_matrix(model, test_loader, device, cm_out, class_names)
     print(
         f'Test: loss={test_loss:.4f}, accuracy={test_acc:.4f}, '
         f'recall={test_recall:.4f}, f1={test_f1:.4f}'
     )
+    print(f'Confusion Matrix gespeichert unter: {cm_out}')
 
 
 
