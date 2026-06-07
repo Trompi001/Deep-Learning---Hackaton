@@ -3,6 +3,8 @@ import argparse
 import random
 
 import matplotlib
+# 'Agg' verhindert, dass matplotlib versucht, ein GUI-Fenster zu öffnen.
+# Das ist wichtig, wenn der Code auf Servern oder per SSH ohne Display läuft.
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
@@ -12,19 +14,21 @@ from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 from torchvision.transforms import functional as TF
 
-# Basis-Konfiguration
+# --- Hyperparameter & Einstellungen ---
 SEED = 42
-EPOCHS = 100
-BATCH_SIZE = 128
-POSITIVE_MULTIPLIER = 4
-LEARNING_RATE = 1e-3
-MAX_TRAIN_BATCHES_PER_EPOCH = 0
-EARLY_STOPPING_PATIENCE = 6
-EARLY_STOPPING_MIN_DELTA = 1e-4
-PLOT_PATH = 'plot/CNN_model_training_'
+EPOCHS = 100                 # Maximale Anzahl an Epochen, dank Early Stopping wird meist früher abgebrochen.
+BATCH_SIZE = 128            # Batch-Größe für das Training.
+POSITIVE_MULTIPLIER = 4     # Oversampling-Faktor: Wie oft positive Bilder (y) dupliziert werden.
+LEARNING_RATE = 1e-3        # Standard-Lernrate für den Adam-Optimizer.
+MAX_TRAIN_BATCHES_PER_EPOCH = 0 # Optionale Begrenzung der Batches pro Epoche (<=0 = kein Limit).
+EARLY_STOPPING_PATIENCE = 6  # Geduldszeit: Nach wie vielen Epochen ohne Val-Loss-Verbesserung abgebrochen wird.
+EARLY_STOPPING_MIN_DELTA = 1e-4 # Minimale Verbesserung des Val-Loss, die als Fortschritt gilt.
+PLOT_PATH = 'plot/CNN_model_training_' # Basis-Pfad für den Export der Grafiken.
 
 def get_device() -> torch.device:
-    """Wählt das beste verfügbare Rechengerät (CUDA, MPS oder CPU)."""
+    """Wählt das beste verfügbare Rechengerät.
+    Gibt CUDA für Nvidia-GPUs, MPS für Apple Silicon oder CPU zurück.
+    """
     if torch.cuda.is_available():
         return torch.device('cuda')
     if torch.backends.mps.is_available():
@@ -33,6 +37,9 @@ def get_device() -> torch.device:
 
 
 def resolve_from_script_dir(path_value: str) -> Path:
+    """Konvertiert relative Pfade so, dass sie relativ zum Verzeichnis dieses
+    Skripts aufgelöst werden. Verhindert Pfadfehler bei Aufrufen aus anderen Ordnern.
+    """
     path = Path(path_value)
     if path.is_absolute():
         return path
@@ -41,6 +48,9 @@ def resolve_from_script_dir(path_value: str) -> Path:
 
 
 def seed_everything(seed: int) -> None:
+    """Fixiert alle Zufallsgeneratoren (Python, PyTorch, CUDA), damit die
+    Ergebnisse bei jedem Durchlauf exakt identisch und reproduzierbar sind.
+    """
     random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -48,27 +58,39 @@ def seed_everything(seed: int) -> None:
 
 
 class SimpleCNN(nn.Module):
+    """Einfaches Faltungsnetzwerk (CNN) mit 3 Conv-Schichten.
+    Verkleinert die räumliche Bildauflösung stufenweise, während die Kanaltiefe steigt.
+    """
     def __init__(self, num_classes: int = 2):
         super().__init__()
+        # Feature Extractor: Lernt visuelle Merkmale wie Kanten, Formen und Texturen
         self.features = nn.Sequential(
+            # 1. Block: Conv (3->16 Kanäle) -> Aktivierung -> Pooling (Halbiert Auflösung)
             nn.Conv2d(3, 16, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
+            # 2. Block: Conv (16->32 Kanäle) -> Aktivierung -> Pooling
             nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
+            # 3. Block: Conv (32->64 Kanäle) -> Aktivierung -> Pooling
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
         )
+        # Klassifikationskopf: Mappt gelernte Features auf die Zielklassen (n/y)
         self.classifier = nn.Sequential(
+            # Adaptive Pooling bringt die Feature-Map auf eine feste Größe von 1x1
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
+            # Dropout blendet zufällig 30% der Gewichte aus, um Overfitting zu reduzieren
             nn.Dropout(p=0.3),
+            # Linearer Layer zur Klassifikation (64 Features -> 2 Klassen)
             nn.Linear(64, num_classes),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Führt den Forward-Pass des Modells aus."""
         x = self.features(x)
         return self.classifier(x)
 
@@ -80,6 +102,12 @@ def build_dataloaders(
     num_workers: int,
     positive_multiplier: int,
 ) -> tuple[DataLoader, DataLoader, DataLoader, dict[str, int]]:
+    """Lädt die Bilder, wendet Augmentierung an und balanciert die positive
+    Klasse durch ein einfaches Index-Oversampling aus.
+    """
+    # Datenaugmentierung für das Training: Verhindert Overfitting, indem das Modell
+    # rotierte und gespiegelte Varianten der Bilder sieht.
+    # transforms.RandomChoice wählt zufällig eine der definierten Rotationen aus.
     rotate_choices = transforms.RandomChoice(
         [
             transforms.Lambda(lambda img: TF.rotate(img, 0)),
@@ -96,6 +124,8 @@ def build_dataloaders(
             transforms.ToTensor(),
         ]
     )
+    # Validierungs- und Testdaten werden nicht augmentiert, sondern nur skaliert,
+    # da wir die reale Modellleistung ohne Verzerrung testen wollen.
     eval_tf = transforms.Compose(
         [
             transforms.Resize((image_size, image_size)),
@@ -103,12 +133,14 @@ def build_dataloaders(
         ]
     )
 
+    # ImageFolder liest die Klassen automatisch anhand der Ordnerstruktur (train/val/test -> y/n) aus
     train_ds = datasets.ImageFolder(data_root / 'train', transform=train_tf)
     val_ds = datasets.ImageFolder(data_root / 'val', transform=eval_tf)
     test_ds = datasets.ImageFolder(data_root / 'test', transform=eval_tf)
 
     class_to_idx = train_ds.class_to_idx
 
+    # Plausibilitätsprüfung für die Klassenordner
     if set(class_to_idx.keys()) != {'n', 'y'}:
         raise ValueError(
             f"Erwartete Klassenordner {{'n', 'y'}}, gefunden: {set(class_to_idx.keys())}"
@@ -117,20 +149,26 @@ def build_dataloaders(
     if positive_multiplier < 1:
         raise ValueError('positive_multiplier muss >= 1 sein.')
 
+    # --- Start des Oversamplings ---
+    # Da die positive Klasse 'y' unterrepräsentiert ist, duplizieren wir deren Indizes.
+    # So sieht das Modell während einer Epoche die seltenen positiven Bilder häufiger.
     positive_idx = class_to_idx['y']
     expanded_indices: list[int] = []
     for sample_idx, (_, class_idx) in enumerate(train_ds.samples):
+        # Falls positiv: Füge den Index des Bildes mehrfach zur Liste hinzu
         repeat = positive_multiplier if class_idx == positive_idx else 1
         expanded_indices.extend([sample_idx] * repeat)
 
+    # Der Subset-Wrapper erstellt ein Teildatenset basierend auf den vervielfachten Indizes
     train_ds = Subset(train_ds, expanded_indices)
 
+    # Dataloader-Erstellung
     train_loader = DataLoader(
         train_ds,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=True, # Mischt die Bilder in jeder Epoche neu durch
         num_workers=num_workers,
-        pin_memory=torch.cuda.is_available(),
+        pin_memory=torch.cuda.is_available(), # Beschleunigt Datentransfer zur GPU
     )
     val_loader = DataLoader(
         val_ds,
@@ -157,8 +195,11 @@ def run_epoch(
     optimizer: optim.Optimizer | None = None,
     max_batches: int | None = None,
 ) -> tuple[float, float, float, float]:
+    """Führt eine einzelne Epoche (Training oder Validierung) durch.
+    Berechnet Verlust, Genauigkeit, Recall und F1-Score für die positive Klasse.
+    """
     is_train = optimizer is not None
-    model.train(is_train)
+    model.train(is_train) # Aktiviert/Deaktiviert Dropout-Schichten entsprechend
 
     total_loss = 0.0
     total_correct = 0
@@ -168,26 +209,31 @@ def run_epoch(
     false_negatives = 0
 
     for batch_idx, (images, labels) in enumerate(loader):
+        # Ermöglicht das vorzeitige Stoppen einer Epoche zu Testzwecken
         if max_batches is not None and batch_idx >= max_batches:
             break
 
+        # Daten auf das Rechengerät laden
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
 
         if is_train:
-            optimizer.zero_grad()
+            optimizer.zero_grad() # Setzt Gradienten der vorherigen Iteration auf Null
 
+        # Forward Pass: Modellvorhersage berechnen
         logits = model(images)
         loss = criterion(logits, labels)
 
+        # Backward Pass & Gewichtsupdate (nur beim Training)
         if is_train:
             loss.backward()
             optimizer.step()
 
+        # Metrikberechnung
         preds = torch.argmax(logits, dim=1)
         total_correct += (preds == labels).sum().item()
 
-        # Binäre Metriken für positive Klasse "y" (Index 1)
+        # Binäre Metriken für positive Klasse "y" (Index 1) zur F1/Recall-Berechnung
         true_positives += ((preds == 1) & (labels == 1)).sum().item()
         false_positives += ((preds == 1) & (labels == 0)).sum().item()
         false_negatives += ((preds == 0) & (labels == 1)).sum().item()
@@ -199,20 +245,24 @@ def run_epoch(
     if total_samples == 0:
         return 0.0, 0.0, 0.0, 0.0
 
+    # Durchschnittswerte für die gesamte Epoche
     avg_loss = total_loss / total_samples
     accuracy = total_correct / total_samples
+    # 1e-12 verhindert Division durch Null
     recall = true_positives / (true_positives + false_negatives + 1e-12)
     f1 = (2 * true_positives) / (2 * true_positives + false_positives + false_negatives + 1e-12)
     return avg_loss, accuracy, recall, f1
 
 
 def plot_learning_curves(history: dict[str, list[float]], output_path: Path) -> None:
+    """Erstellt Plots für den Loss- und Accuracy-Verlauf über die Epochen und speichert diese als PNG."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plt.style.use('ggplot')
 
     epochs = list(range(1, len(history['train_loss']) + 1))
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.5))
 
+    # Loss-Kurve (Links)
     ax1.plot(epochs, history['train_loss'], marker='o', label='Train Loss')
     ax1.plot(epochs, history['val_loss'], marker='o', label='Val Loss')
     ax1.set_xlabel('Epoch')
@@ -220,6 +270,7 @@ def plot_learning_curves(history: dict[str, list[float]], output_path: Path) -> 
     ax1.set_title('Loss-Verlauf')
     ax1.legend()
 
+    # Accuracy-Kurve (Rechts)
     ax2.plot(epochs, history['train_acc'], marker='o', label='Train Accuracy')
     ax2.plot(epochs, history['val_acc'], marker='o', label='Val Accuracy')
     ax2.set_xlabel('Epoch')
@@ -229,7 +280,7 @@ def plot_learning_curves(history: dict[str, list[float]], output_path: Path) -> 
 
     fig.tight_layout()
     fig.savefig(output_path, dpi=150)
-    plt.close(fig)
+    plt.close(fig) # Gibt den belegten RAM der Figure wieder frei
 
 
 def save_confusion_matrix(
@@ -239,31 +290,44 @@ def save_confusion_matrix(
     output_path: Path,
     class_names: list[str],
 ) -> None:
+    """Generiert eine Confusion Matrix für das Testset, zeichnet sie auf der CPU
+    und speichert sie als Plot-Grafik ab.
+    """
     model.eval()
     cm = torch.zeros((2, 2), dtype=torch.int64)
 
+    # Deaktiviert Gradientenberechnung für schnellere Evaluation
     with torch.no_grad():
         for images, labels in loader:
             images = images.to(device, non_blocking=True)
-            labels = labels.to(device, non_blocking=True)
-            preds = torch.argmax(model(images), dim=1)
-            for truth, pred in zip(labels.view(-1), preds.view(-1)):
-                cm[truth.long(), pred.long()] += 1
+            # Vorhersagen berechnen und direkt auf CPU verschieben
+            preds = torch.argmax(model(images), dim=1).cpu()
+            labels = labels.cpu()
+            # Zuweisung der Vorhersagen in die Confusion Matrix (Vektorisiert auf CPU)
+            for t in range(2):
+                for p in range(2):
+                    cm[t, p] += ((labels == t) & (preds == p)).sum().item()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(5, 4))
-    cm_np = cm.cpu().numpy()
+    cm_np = cm.numpy()
     image = ax.imshow(cm_np, cmap='Blues')
     fig.colorbar(image, ax=ax)
+    
+    # Achsen-Beschriftung setzen
     ax.set_xticks(range(len(class_names)))
     ax.set_yticks(range(len(class_names)))
     ax.set_xticklabels(class_names)
     ax.set_yticklabels(class_names)
+    
+    # Werte in die Zellen der Matrix eintragen
     for i in range(cm_np.shape[0]):
         for j in range(cm_np.shape[1]):
             value = cm_np[i, j]
+            # Weißer Text auf dunklem Feld, schwarzer Text auf hellem Feld
             text_color = 'white' if value > cm_np.max() / 2 else 'black'
             ax.text(j, i, f'{value:d}', ha='center', va='center', color=text_color)
+            
     ax.set_xlabel('Vorhersage')
     ax.set_ylabel('Wahrheit')
     ax.set_title('Confusion Matrix (Test)')
@@ -273,6 +337,7 @@ def save_confusion_matrix(
 
 
 def parse_args():
+    """Definiert die Kommandozeilenargumente für das Skript."""
     parser = argparse.ArgumentParser(description='Trainiert ein CNN auf dem Zürich-Split-Datensatz.')
     parser.add_argument(
         '--data-dir',
@@ -340,6 +405,7 @@ def main() -> None:
     args = parse_args()
     seed_everything(args.seed)
 
+    # Pfade auflösen
     data_dir = resolve_from_script_dir(args.data_dir)
     if not data_dir.exists():
         raise FileNotFoundError(f'Datenordner nicht gefunden: {data_dir}')
@@ -352,6 +418,7 @@ def main() -> None:
     device = get_device()
     print(f'Nutze Device: {device}')
 
+    # Dataloader erstellen
     train_loader, val_loader, test_loader, class_to_idx = build_dataloaders(
         data_root=data_dir,
         image_size=args.image_size,
@@ -367,6 +434,7 @@ def main() -> None:
         f"val={len(val_loader.dataset)}, test={len(test_loader.dataset)}"
     )
 
+    # Modell initialisieren, Loss-Funktion und Optimizer definieren
     model = SimpleCNN(num_classes=2).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -376,7 +444,9 @@ def main() -> None:
     epochs_without_improvement = 0
     max_batches = None if args.max_train_batches <= 0 else args.max_train_batches
 
+    # --- Trainings-Schleife ---
     for epoch in range(1, args.epochs + 1):
+        # Trainings-Durchlauf
         train_loss, train_acc, train_recall, train_f1 = run_epoch(
             model=model,
             loader=train_loader,
@@ -385,6 +455,7 @@ def main() -> None:
             optimizer=optimizer,
             max_batches=max_batches,
         )
+        # Validierungs-Durchlauf
         with torch.no_grad():
             val_loss, val_acc, val_recall, val_f1 = run_epoch(
                 model=model,
@@ -393,6 +464,7 @@ def main() -> None:
                 device=device,
             )
 
+        # Verlauf speichern
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
         history['train_acc'].append(train_acc)
@@ -406,10 +478,11 @@ def main() -> None:
             f"val_recall={val_recall:.4f}, val_f1={val_f1:.4f}"
         )
 
+        # Early Stopping Überprüfung
         if val_loss < (best_val_loss - args.early_stopping_min_delta):
             best_val_loss = val_loss
             epochs_without_improvement = 0
-            torch.save(model.state_dict(), model_out)
+            torch.save(model.state_dict(), model_out) # Besten Modellzustand speichern
         else:
             epochs_without_improvement += 1
             if args.early_stopping_patience > 0:
@@ -429,6 +502,8 @@ def main() -> None:
     plot_learning_curves(history, plot_out)
     print(f'Lernkurven gespeichert unter: {plot_out}')
 
+    # --- Test-Evaluation am Ende des Trainings ---
+    # Laden des besten Modells für die finale Testmenge
     model.load_state_dict(torch.load(model_out, map_location=device))
     model.eval()
     with torch.no_grad():
@@ -443,6 +518,7 @@ def main() -> None:
         f'recall={test_recall:.4f}, f1={test_f1:.4f}'
     )
 
+    # Confusion Matrix auf Test-Set berechnen und plotten
     class_names = [name for name, _ in sorted(class_to_idx.items(), key=lambda kv: kv[1])]
     save_confusion_matrix(model, test_loader, device, cm_out, class_names)
     print(f'Confusion-Matrix gespeichert unter: {cm_out}')
@@ -450,4 +526,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-

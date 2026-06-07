@@ -7,6 +7,8 @@ import random
 from pathlib import Path
 
 import matplotlib
+# 'Agg' verhindert, dass matplotlib versucht, ein GUI-Fenster zu öffnen.
+# Das ist wichtig, wenn der Code auf Servern oder per SSH ohne Display läuft.
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import optuna
@@ -19,17 +21,20 @@ from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 from torchvision.transforms import functional as TF
 
-
+# --- Hyperparameter & Standard-Einstellungen ---
 SEED = 42
-N_TRIALS = 30
-OPTUNA_EPOCHS = 8
-OPTUNA_PATIENCE = 3
-FINAL_EPOCHS = 100
-FINAL_PATIENCE = 6
-FINAL_MIN_DELTA = 1e-4
+N_TRIALS = 30                # Standardanzahl an Optimierungsdurchgängen (Trials).
+OPTUNA_EPOCHS = 8            # Kurzes Training pro Trial zur schnellen Trendanalyse.
+OPTUNA_PATIENCE = 3          # Early Stopping innerhalb eines einzelnen Trials.
+FINAL_EPOCHS = 100           # Volles Training des besten gefundenen Modells.
+FINAL_PATIENCE = 6           # Geduldszeit für das finale Modelltraining.
+FINAL_MIN_DELTA = 1e-4       # Minimale Verbesserung des Val-Loss im finalen Training.
 
 
 def get_device() -> torch.device:
+    """Wählt das beste verfügbare Rechengerät.
+    Gibt CUDA für Nvidia-GPUs, MPS für Apple Silicon oder CPU zurück.
+    """
     if torch.cuda.is_available():
         return torch.device('cuda')
     if torch.backends.mps.is_available():
@@ -38,6 +43,9 @@ def get_device() -> torch.device:
 
 
 def resolve_from_script_dir(path_value: str) -> Path:
+    """Konvertiert relative Pfade so, dass sie relativ zum Verzeichnis dieses
+    Skripts aufgelöst werden. Verhindert Pfadfehler bei Aufrufen aus anderen Ordnern.
+    """
     path = Path(path_value)
     if path.is_absolute():
         return path
@@ -46,6 +54,9 @@ def resolve_from_script_dir(path_value: str) -> Path:
 
 
 def seed_everything(seed: int) -> None:
+    """Fixiert alle Zufallsgeneratoren (Python, PyTorch, CUDA), damit die
+    Ergebnisse bei jedem Durchlauf exakt identisch und reproduzierbar sind.
+    """
     random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -53,8 +64,12 @@ def seed_everything(seed: int) -> None:
 
 
 class SimpleCNN(nn.Module):
+    """Einfaches Faltungsnetzwerk (CNN) mit 3 Conv-Schichten und anpassbarem Dropout.
+    Ermöglicht Optuna die Optimierung der Dropout-Wahrscheinlichkeit.
+    """
     def __init__(self, num_classes: int = 2, dropout_p: float = 0.3):
         super().__init__()
+        # Feature Extractor: Lernt visuelle Merkmale wie Kanten, Formen und Texturen
         self.features = nn.Sequential(
             nn.Conv2d(3, 16, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
@@ -66,14 +81,16 @@ class SimpleCNN(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
         )
+        # Klassifikationskopf: Mappt gelernte Features auf die Zielklassen (n/y)
         self.classifier = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
-            nn.Dropout(p=dropout_p),
+            nn.Dropout(p=dropout_p), # Durch Optuna zu optimierende Dropout-Rate
             nn.Linear(64, num_classes),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Führt den Forward-Pass des Modells aus."""
         x = self.features(x)
         return self.classifier(x)
 
@@ -85,6 +102,11 @@ def build_dataloaders(
     num_workers: int,
     positive_multiplier: int,
 ) -> tuple[DataLoader, DataLoader, DataLoader, dict[str, int]]:
+    """Lädt die Bilder, wendet Augmentierung an und balanciert die positive
+    Klasse durch ein einfaches Index-Oversampling aus.
+    """
+    # Datenaugmentierung für das Training: Verhindert Overfitting, indem das Modell
+    # rotierte und gespiegelte Varianten der Bilder sieht.
     rotate_choices = transforms.RandomChoice(
         [
             transforms.Lambda(lambda img: TF.rotate(img, 0)),
@@ -101,6 +123,8 @@ def build_dataloaders(
             transforms.ToTensor(),
         ]
     )
+    # Validierungs- und Testdaten werden nicht augmentiert, sondern nur skaliert,
+    # da wir die reale Modellleistung ohne Verzerrung testen wollen.
     eval_tf = transforms.Compose(
         [
             transforms.Resize((image_size, image_size)),
@@ -121,6 +145,7 @@ def build_dataloaders(
     if positive_multiplier < 1:
         raise ValueError('positive_multiplier muss >= 1 sein.')
 
+    # Oversampling: Vervielfachen der Indizes der selteneren positiven Klasse
     positive_idx = class_to_idx['y']
     expanded_indices: list[int] = []
     for sample_idx, (_, class_idx) in enumerate(train_ds.samples):
@@ -162,6 +187,9 @@ def run_epoch(
     optimizer: optim.Optimizer | None = None,
     max_batches: int | None = None,
 ) -> tuple[float, float, float, float]:
+    """Führt eine einzelne Epoche (Training oder Validierung) durch.
+    Berechnet Verlust, Genauigkeit, Recall und F1-Score für die positive Klasse.
+    """
     is_train = optimizer is not None
     model.train(is_train)
 
@@ -211,6 +239,7 @@ def run_epoch(
 
 
 def plot_learning_curves(history: dict[str, list[float]], output_path: Path) -> None:
+    """Erstellt Plots für den Loss- und Accuracy-Verlauf über die Epochen und speichert diese als PNG."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plt.style.use('ggplot')
 
@@ -243,6 +272,9 @@ def save_confusion_matrix(
     output_path: Path,
     class_names: list[str],
 ) -> None:
+    """Generiert eine Confusion Matrix für das Testset, zeichnet sie auf der CPU
+    und speichert sie als Plot-Grafik ab.
+    """
     model.eval()
     cm = torch.zeros((2, 2), dtype=torch.int64)
 
@@ -282,10 +314,12 @@ def make_optimizer(
     learning_rate: float,
     weight_decay: float,
 ) -> optim.Optimizer:
+    """Fabrik-Funktion zur Erstellung des gewünschten Optimierers anhand der Optuna-Vorgabe."""
     if optimizer_name == 'adam':
         return optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     if optimizer_name == 'adamw':
         return optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    # SGD mit Momentum als Fallback / Alternative
     return optim.SGD(
         model.parameters(),
         lr=learning_rate,
@@ -295,7 +329,12 @@ def make_optimizer(
 
 
 def load_checkpoint_into_model(model: nn.Module, checkpoint_path: Path, device: torch.device) -> None:
+    """Lädt einen bestehenden Modell-Zustand in das neuronale Netz.
+    Erlaubt nicht-strikte Übereinstimmung (strict=False), falls sich z. B. die Dropout-Rate 
+    im Klassifikationskopf im aktuellen Trial unterscheidet.
+    """
     checkpoint = torch.load(checkpoint_path, map_location=device)
+    # Behandelt sowohl reine state_dicts als auch verpackte Checkpoint-Wörterbücher
     if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
         state_dict = checkpoint['model_state_dict']
     elif isinstance(checkpoint, dict):
@@ -303,6 +342,7 @@ def load_checkpoint_into_model(model: nn.Module, checkpoint_path: Path, device: 
     else:
         raise ValueError(f'Ungueltiges Checkpoint-Format: {checkpoint_path}')
 
+    # strict=False verhindert Abstürze bei strukturellen Randänderungen (z.B. Dropout)
     incompatible = model.load_state_dict(state_dict, strict=False)
     if incompatible.missing_keys or incompatible.unexpected_keys:
         print(
@@ -313,6 +353,7 @@ def load_checkpoint_into_model(model: nn.Module, checkpoint_path: Path, device: 
 
 
 def parse_args():
+    """Definiert die Kommandozeilenargumente für das Skript."""
     parser = argparse.ArgumentParser(description='Optuna-Tuning fuer das CNN auf dem Zuerich-Split.')
     parser.add_argument('--data-dir', type=str, default='../data/zürich/split', help='Pfad zu train/val/test.')
     parser.add_argument('--n-trials', type=int, default=N_TRIALS, help='Anzahl Optuna-Trials.')
@@ -351,6 +392,7 @@ def main() -> None:
     cm_out = resolve_from_script_dir(args.cm_out)
     model_out.parent.mkdir(parents=True, exist_ok=True)
 
+    # Fallback-Regelung falls der standardmäßige Tippfehler-Pfad des Base-Modells fehlt
     if not base_model.exists():
         fallback_model = resolve_from_script_dir('models/Simple_CNN_zurich.pt')
         if fallback_model.exists():
@@ -369,9 +411,14 @@ def main() -> None:
     print(f'Verbessere Base-Modell: {base_model}')
 
     def objective(trial: optuna.Trial) -> float:
+        """Die Zielfunktion für Optuna. Definiert den Hyperparameter-Suchraum, 
+        initialisiert das Netz für jeden Trial und gibt den besten Validierungsverlust zurück.
+        """
+        # Seed variieren pro Trial für echte Robustheit
         seed_everything(args.seed + trial.number)
 
-        learning_rate = trial.suggest_float('lr', 1e-5, 5e-3, log=True)
+        # Definition des Hyperparameter-Suchraums
+        learning_rate = trial.suggest_float('lr', 1e-5, 5e-3, log=True) # Log-skalierte Lernrate
         optimizer_name = trial.suggest_categorical('optimizer', ['adam', 'adamw', 'sgd'])
         weight_decay = trial.suggest_float('weight_decay', 1e-6, 1e-2, log=True)
         dropout_p = trial.suggest_float('dropout', 0.0, 0.6, step=0.1)
@@ -379,6 +426,7 @@ def main() -> None:
         batch_size = trial.suggest_categorical('batch_size', [32, 64, 128, 256])
         positive_multiplier = trial.suggest_int('positive_multiplier', 1, 6)
 
+        # Dataloader für die vorgeschlagene Batch- und Bildgröße erstellen
         train_loader, val_loader, _, _ = build_dataloaders(
             data_root=data_dir,
             image_size=image_size,
@@ -387,6 +435,7 @@ def main() -> None:
             positive_multiplier=positive_multiplier,
         )
 
+        # Modell laden und warmstarten (Laden der bestehenden Gewichte)
         model = SimpleCNN(num_classes=2, dropout_p=dropout_p).to(device)
         load_checkpoint_into_model(model, base_model, device)
         criterion = nn.CrossEntropyLoss()
@@ -395,6 +444,7 @@ def main() -> None:
         best_val_loss = float('inf')
         patience_ct = 0
 
+        # Kurzes Trainings-Intervall pro Trial
         for epoch in range(args.optuna_epochs):
             run_epoch(
                 model=model,
@@ -412,12 +462,16 @@ def main() -> None:
                     device=device,
                 )
 
+            # Optuna den Zwischenstand mitteilen
             trial.report(val_loss, epoch)
             trial.set_user_attr('last_val_acc', val_acc)
             trial.set_user_attr('last_val_f1', val_f1)
+            
+            # Überprüfen, ob der Trial vorzeitig abgebrochen (gepruned) werden soll
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
 
+            # Early Stopping innerhalb des Trials
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_ct = 0
@@ -428,7 +482,9 @@ def main() -> None:
 
         return best_val_loss
 
+    # TPE Sampler für intelligente probabilistische Parametersuche
     sampler = TPESampler(seed=args.seed)
+    # MedianPruner bricht Trials ab, die schlechter als der Median bisheriger Läufe sind
     pruner = MedianPruner(n_startup_trials=5, n_warmup_steps=2)
     study = optuna.create_study(
         study_name=args.study_name,
@@ -440,11 +496,13 @@ def main() -> None:
     print(f'Starte Optuna mit {args.n_trials} Trials ...')
     study.optimize(objective, n_trials=args.n_trials, show_progress_bar=True)
 
+    # Ausgabe des besten Trials
     best = study.best_trial
     print(f'Bester Trial: #{best.number} | val_loss={best.value:.4f}')
     for key in sorted(best.params.keys()):
         print(f'  {key}: {best.params[key]}')
 
+    # --- Finales Training mit den ermittelten Best-Parametern ---
     params = best.params
     train_loader, val_loader, test_loader, class_to_idx = build_dataloaders(
         data_root=data_dir,
@@ -454,7 +512,9 @@ def main() -> None:
         positive_multiplier=params['positive_multiplier'],
     )
 
+    # Modell neu initialisieren mit bestem Dropout
     model = SimpleCNN(num_classes=2, dropout_p=params['dropout']).to(device)
+    # Erneuter Warmstart
     load_checkpoint_into_model(model, base_model, device)
     criterion = nn.CrossEntropyLoss()
     optimizer = make_optimizer(params['optimizer'], model, params['lr'], params['weight_decay'])
@@ -463,6 +523,7 @@ def main() -> None:
     best_val_loss = float('inf')
     epochs_without_improvement = 0
 
+    # Trainieren über die volle Epochenanzahl
     for epoch in range(1, args.final_epochs + 1):
         train_loss, train_acc, train_recall, train_f1 = run_epoch(
             model=model,
@@ -493,9 +554,11 @@ def main() -> None:
             f'val_recall={val_recall:.4f}, val_f1={val_f1:.4f}'
         )
 
+        # Early Stopping für das finale Training
         if val_loss < (best_val_loss - args.final_min_delta):
             best_val_loss = val_loss
             epochs_without_improvement = 0
+            # Speichert das optimierte finale Modell mitsamt seinen Hyperparametern
             torch.save(
                 {
                     'model_state_dict': model.state_dict(),
@@ -515,9 +578,11 @@ def main() -> None:
                 )
                 break
 
+    # Laden des besten Zustands aus dem finalen Lauf zur Evaluation auf dem Test-Set
     checkpoint = torch.load(model_out, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
+    # Finale Test-Auswertung
     with torch.no_grad():
         test_loss, test_acc, test_recall, test_f1 = run_epoch(
             model=model,
@@ -531,6 +596,7 @@ def main() -> None:
         f'recall={test_recall:.4f}, f1={test_f1:.4f}'
     )
 
+    # Lernkurven-Plot & Confusion-Matrix exportieren
     plot_learning_curves(history, plot_out)
     print(f'Lernkurven gespeichert unter: {plot_out}')
 
