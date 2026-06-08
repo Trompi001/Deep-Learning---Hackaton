@@ -104,7 +104,7 @@ Führt eine automatisierte, intelligente Suche nach der optimalen Parameterkonfi
 * **Ablauf & Pruning:**
   * Optuna führt eine definierte Anzahl von Durchläufen (Trials) aus. In jedem Trial wird das Modell mit einer bestimmten Hyperparameter-Kombination für eine geringe Epochenanzahl (Standard: 8) trainiert.
   * **MedianPruner:** Nach jeder Epoche gleicht Optuna den aktuellen Validierungsverlust mit den Median-Verläufen früherer Trials ab. Liegt der Trial signifikant zurück, wird er sofort abgebrochen (gepruned), was immense Rechenzeit einspart.
-  * **Transfer/Warm Start:** Jedes Trial startet standardmäßig mit dem Laden des vortrainierten Basismodells (`Simple_CNN_zurich.pt`) über `strict=False`, um eine kontinuierliche Verbesserung bestehender Gewichte zu erzielen. Dies kann durch die Verwendung des Parameters `--no-warm-start` deaktiviert werden, sodass alle Modelle im Tuning komplett von Grund auf (*from scratch*) trainiert werden.
+  * **Training from Scratch:** Um die volle Unabhängigkeit des Tunings und die direkte Übertragbarkeit der Ergebnisse zu gewährleisten, wird komplett auf einen Warm-Start verzichtet. Alle Trials starten mit einer zufälligen Gewichtsinitialisierung.
 * **Suchraum der Hyperparameter:**
   * Lernrate (`lr`): Logarithmisch-gleichmäßig verteilt zwischen $10^{-5}$ und $5 \cdot 10^{-3}$.
   * Optimizer: Kategorische Auswahl aus `adam`, `adamw` und `sgd` (mit Momentum 0.9).
@@ -115,9 +115,6 @@ Führt eine automatisierte, intelligente Suche nach der optimalen Parameterkonfi
   * Oversampling-Faktor (`positive_multiplier`): Ganzzahlige Werte zwischen $1$ und $6$.
 * **Finalisierung:**
   * Nach Beendigung der Suche wird das Modell mit den besten Parametern über die volle Epochenanzahl (Standard: 100) mit maximaler Patience trainiert und als finaler Checkpoint (`cnn_zurich_optuna_best.pt`) abgelegt.
-* **Ergebnisreproduzierbarkeit (Optuna vs. Normales Training):**
-  * Die im Optuna-Skript erzielen Höchstleistungen (z. B. Accuracy von 99.55% und F1-Score von 95.30%) konnten im normalen Training ([02.1_train_CNN_model.py](file:///c:/Users/gartm/dev/4.%20Semester/Deeplearning/Deep-Learning---Hackaton/project/02.1_train_CNN_model.py)) selbst mit identischen Hyperparametern nicht wieder erreicht werden.
-  * **Begründung (Warm Start):** Das Optuna-Skript verwendet sowohl während der Tuning-Trials als auch im finalen Trainingsschritt einen **Warm Start** (`load_checkpoint_into_model`), indem es das bereits vortrainierte Basismodell ([Simple_CNN_zurich.pt](file:///c:/Users/gartm/dev/4.%20Semester/Deeplearning/Deep-Learning---Hackaton/project/models/Simple_CNN_zurich.pt)) lädt. Das Modell lernt somit kontinuierlich auf bereits hochgradig optimierten Gewichten weiter. Im normalen Trainingsskript wird das Modell hingegen von Grund auf mit zufälligen Gewichten initialisiert (training *from scratch*). Ohne dieses vortrainierte Fundament konvergiert das Netz in anderen lokalen Minima und erreicht die exzellente Leistung des Warm-Starts nicht.
 
 ---
 

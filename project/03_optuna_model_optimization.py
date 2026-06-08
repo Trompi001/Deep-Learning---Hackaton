@@ -328,29 +328,6 @@ def make_optimizer(
     )
 
 
-def load_checkpoint_into_model(model: nn.Module, checkpoint_path: Path, device: torch.device) -> None:
-    """Lädt einen bestehenden Modell-Zustand in das neuronale Netz.
-    Erlaubt nicht-strikte Übereinstimmung (strict=False), falls sich z. B. die Dropout-Rate 
-    im Klassifikationskopf im aktuellen Trial unterscheidet.
-    """
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-    # Behandelt sowohl reine state_dicts als auch verpackte Checkpoint-Wörterbücher
-    if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-        state_dict = checkpoint['model_state_dict']
-    elif isinstance(checkpoint, dict):
-        state_dict = checkpoint
-    else:
-        raise ValueError(f'Ungueltiges Checkpoint-Format: {checkpoint_path}')
-
-    # strict=False verhindert Abstürze bei strukturellen Randänderungen (z.B. Dropout)
-    incompatible = model.load_state_dict(state_dict, strict=False)
-    if incompatible.missing_keys or incompatible.unexpected_keys:
-        print(
-            f'Hinweis beim Laden von {checkpoint_path}: '
-            f'missing_keys={len(incompatible.missing_keys)}, '
-            f'unexpected_keys={len(incompatible.unexpected_keys)}'
-        )
-
 
 def parse_args():
     """Definiert die Kommandozeilenargumente für das Skript."""
@@ -366,20 +343,9 @@ def parse_args():
     parser.add_argument('--max-train-batches', type=int, default=0, help='Train-Batch-Limit pro Epoche (<=0 = kein Limit).')
     parser.add_argument('--study-name', type=str, default='cnn_zurich_optuna', help='Optuna Study-Name.')
     parser.add_argument('--seed', type=int, default=SEED, help='Zufalls-Seed.')
-    parser.add_argument(
-        '--base-model',
-        type=str,
-        default='models/Simple_CNN_zuich.pt',
-        help='Pfad zum bestehenden Simple-CNN-Modell, das verbessert werden soll.',
-    )
     parser.add_argument('--model-out', type=str, default='models/cnn_zurich_optuna_best.pt', help='Pfad fuer bestes Modell.')
     parser.add_argument('--plot-out', type=str, default='plot/optuna_model_training_learning_curve.png', help='Pfad fuer Lernkurven-Plot.')
     parser.add_argument('--cm-out', type=str, default='plot/optuna_test_confusion_matrix.png', help='Pfad fuer Confusion Matrix.')
-    parser.add_argument(
-        '--no-warm-start',
-        action='store_true',
-        help='Trainiert alle Modelle im Tuning von Grund auf (from scratch), ohne ein vortrainiertes Basismodell zu laden.',
-    )
     return parser.parse_args()
 
 
@@ -396,29 +362,10 @@ def main() -> None:
     cm_out = resolve_from_script_dir(args.cm_out)
     model_out.parent.mkdir(parents=True, exist_ok=True)
 
-    base_model = None
-    if not args.no_warm_start:
-        base_model = resolve_from_script_dir(args.base_model)
-        # Fallback-Regelung falls der standardmäßige Tippfehler-Pfad des Base-Modells fehlt
-        if not base_model.exists():
-            fallback_model = resolve_from_script_dir('models/Simple_CNN_zurich.pt')
-            if fallback_model.exists():
-                print(
-                    f'Base-Modell nicht gefunden unter {base_model}, nutze Fallback {fallback_model}.'
-                )
-                base_model = fallback_model
-            else:
-                raise FileNotFoundError(
-                    f'Base-Modell nicht gefunden: {base_model} (auch Fallback fehlt: {fallback_model})'
-                )
-
     device = get_device()
     max_batches = None if args.max_train_batches <= 0 else args.max_train_batches
     print(f'Nutze Device: {device}')
-    if base_model is not None:
-        print(f'Verbessere Base-Modell (Warm Start): {base_model}')
-    else:
-        print('Trainiere von Grund auf (kein Warm-Start).')
+    print('Trainiere alle Modelle von Grund auf (kein Warm-Start).')
 
     def objective(trial: optuna.Trial) -> float:
         """Die Zielfunktion für Optuna. Definiert den Hyperparameter-Suchraum, 
@@ -445,10 +392,8 @@ def main() -> None:
             positive_multiplier=positive_multiplier,
         )
 
-        # Modell laden und optional warmstarten (Laden der bestehenden Gewichte)
+        # Modell laden (wird von Grund auf trainiert)
         model = SimpleCNN(num_classes=2, dropout_p=dropout_p).to(device)
-        if base_model is not None:
-            load_checkpoint_into_model(model, base_model, device)
         criterion = nn.CrossEntropyLoss()
         optimizer = make_optimizer(optimizer_name, model, learning_rate, weight_decay)
 
@@ -525,9 +470,6 @@ def main() -> None:
 
     # Modell neu initialisieren mit bestem Dropout
     model = SimpleCNN(num_classes=2, dropout_p=params['dropout']).to(device)
-    # Optionaler Warmstart
-    if base_model is not None:
-        load_checkpoint_into_model(model, base_model, device)
     criterion = nn.CrossEntropyLoss()
     optimizer = make_optimizer(params['optimizer'], model, params['lr'], params['weight_decay'])
 
