@@ -11,7 +11,7 @@
 #SBATCH --gpus=a100:1	 ## Die Anzahl GPUs (hier eine GPU, mit der Syntax :1)
 
 
-script_name="project/03_optuna_model_optimization.py" # Hier kann der Name des Skriptes ausgetauscht werden. Alternativ kann hier auch ein absoluter Pfad zum Skript angegeben werden.
+script_name="project/02.1_train_CNN_model.py" # Hier kann der Name des Skriptes ausgetauscht werden. Alternativ kann hier auch ein absoluter Pfad zum Skript angegeben werden.
 
 # Live-Logs: conda darf nicht capturen, Python schreibt ungepuffert.
 export PYTHONUNBUFFERED=1
