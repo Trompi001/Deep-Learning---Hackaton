@@ -343,7 +343,7 @@ def parse_args():
     parser.add_argument('--max-train-batches', type=int, default=0, help='Train-Batch-Limit pro Epoche (<=0 = kein Limit).')
     parser.add_argument('--study-name', type=str, default='cnn_zurich_optuna', help='Optuna Study-Name.')
     parser.add_argument('--seed', type=int, default=SEED, help='Zufalls-Seed.')
-    parser.add_argument('--model-out', type=str, default='models/cnn_zurich_optuna_best.pt', help='Pfad fuer bestes Modell.')
+    parser.add_argument('--model-out', type=str, default='models/optuna_model_optimization.pt', help='Pfad fuer bestes Modell.')
     parser.add_argument('--plot-out', type=str, default='plot/optuna_model_training_learning_curve.png', help='Pfad fuer Lernkurven-Plot.')
     parser.add_argument('--cm-out', type=str, default='plot/optuna_test_confusion_matrix.png', help='Pfad fuer Confusion Matrix.')
     return parser.parse_args()

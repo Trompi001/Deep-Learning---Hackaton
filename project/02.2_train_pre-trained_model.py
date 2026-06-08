@@ -369,7 +369,7 @@ def parse_args():
     parser.add_argument(
         '--model-out',
         type=str,
-        default='models/ResNet18_zurich.pt',
+        default='models/pre-trained_model.pt',
         help='Output-Pfad für das beste Modell.',
     )
     parser.add_argument(

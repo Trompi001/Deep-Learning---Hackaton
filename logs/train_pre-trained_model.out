@@ -15,7 +15,7 @@ Keine ausreichende Verbesserung der Val-Loss seit 4 Epoche(n) (patience=5).
 Epoch 08/30 | train_loss=0.0042, train_acc=0.9990, train_recall=0.9993, train_f1=0.9990 | val_loss=0.0262, val_acc=0.9953, val_recall=0.9307, val_f1=0.9493
 Keine ausreichende Verbesserung der Val-Loss seit 5 Epoche(n) (patience=5).
 Early Stopping nach Epoche 8: best_val_loss=0.0181
-Bestes Modell gespeichert unter: /home/gartmaflorin@edu.local/Deep-Learning---Hackaton/project/models/ResNet18_zurich.pt
+Bestes Modell gespeichert unter: /home/gartmaflorin@edu.local/Deep-Learning---Hackaton/project/models/pre-trained_model.pt
 Lernkurven gespeichert unter: /home/gartmaflorin@edu.local/Deep-Learning---Hackaton/project/plot/pre-trained_model_training_learning_curve.png
 Test: loss=0.0207, accuracy=0.9935, recall=0.9521, f1=0.9339
 Confusion Matrix gespeichert unter: /home/gartmaflorin@edu.local/Deep-Learning---Hackaton/project/plot/pre-trained_model_training_confusion_matrix.png

@@ -388,7 +388,7 @@ def parse_args():
     parser.add_argument(
         '--model-out',
         type=str,
-        default='models/Simple_CNN_zurich.pt',
+        default='models/CNN_model.pt',
         help='Output-Pfad für das beste Modell.',
     )
     parser.add_argument(
