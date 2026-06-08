@@ -17,9 +17,12 @@ from torchvision.transforms import functional as TF
 # --- Hyperparameter & Einstellungen ---
 SEED = 42
 EPOCHS = 100                 # Maximale Anzahl an Epochen, dank Early Stopping wird meist früher abgebrochen.
-BATCH_SIZE = 128            # Batch-Größe für das Training.
-POSITIVE_MULTIPLIER = 4     # Oversampling-Faktor: Wie oft positive Bilder (y) dupliziert werden.
-LEARNING_RATE = 1e-3        # Standard-Lernrate für den Adam-Optimizer.
+BATCH_SIZE = 32             # Optimierte Batch-Größe (Optuna)
+POSITIVE_MULTIPLIER = 5     # Optimierter Oversampling-Faktor (Optuna)
+LEARNING_RATE = 0.001239789430250594  # Optimierte Lernrate (Optuna)
+DROPOUT = 0.2               # Optimierte Dropout-Wahrscheinlichkeit (Optuna)
+WEIGHT_DECAY = 0.0018452087946386937  # Optimierter Weight Decay (Optuna)
+OPTIMIZER_NAME = 'adamw'     # Optimierter Optimizer (Optuna)
 MAX_TRAIN_BATCHES_PER_EPOCH = 0 # Optionale Begrenzung der Batches pro Epoche (<=0 = kein Limit).
 EARLY_STOPPING_PATIENCE = 6  # Geduldszeit: Nach wie vielen Epochen ohne Val-Loss-Verbesserung abgebrochen wird.
 EARLY_STOPPING_MIN_DELTA = 1e-4 # Minimale Verbesserung des Val-Loss, die als Fortschritt gilt.
@@ -61,7 +64,7 @@ class SimpleCNN(nn.Module):
     """Einfaches Faltungsnetzwerk (CNN) mit 3 Conv-Schichten.
     Verkleinert die räumliche Bildauflösung stufenweise, während die Kanaltiefe steigt.
     """
-    def __init__(self, num_classes: int = 2):
+    def __init__(self, num_classes: int = 2, dropout_p: float = 0.3):
         super().__init__()
         # Feature Extractor: Lernt visuelle Merkmale wie Kanten, Formen und Texturen
         self.features = nn.Sequential(
@@ -83,8 +86,8 @@ class SimpleCNN(nn.Module):
             # Adaptive Pooling bringt die Feature-Map auf eine feste Größe von 1x1
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
-            # Dropout blendet zufällig 30% der Gewichte aus, um Overfitting zu reduzieren
-            nn.Dropout(p=0.3),
+            # Dropout blendet zufällig dropout_p % der Gewichte aus, um Overfitting zu reduzieren
+            nn.Dropout(p=dropout_p),
             # Linearer Layer zur Klassifikation (64 Features -> 2 Klassen)
             nn.Linear(64, num_classes),
         )
@@ -354,6 +357,9 @@ def parse_args():
         help='Wie oft positive Samples (Klasse y) im Training wiederholt werden.',
     )
     parser.add_argument('--lr', type=float, default=LEARNING_RATE, help='Lernrate.')
+    parser.add_argument('--dropout', type=float, default=DROPOUT, help='Dropout-Wahrscheinlichkeit im Klassifikationskopf.')
+    parser.add_argument('--weight-decay', type=float, default=WEIGHT_DECAY, help='Weight Decay für die Regularisierung.')
+    parser.add_argument('--optimizer', type=str, default=OPTIMIZER_NAME, choices=['adam', 'adamw', 'sgd'], help='Der zu verwendende Optimizer.')
     parser.add_argument('--image-size', type=int, default=128, help='Bildgröße (quadratisch).')
     parser.add_argument(
         '--num-workers',
@@ -435,9 +441,16 @@ def main() -> None:
     )
 
     # Modell initialisieren, Loss-Funktion und Optimizer definieren
-    model = SimpleCNN(num_classes=2).to(device)
+    model = SimpleCNN(num_classes=2, dropout_p=args.dropout).to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    
+    # Optimizer-Wahl analog zu Optuna
+    if args.optimizer == 'adam':
+        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    elif args.optimizer == 'adamw':
+        optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    else:
+        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
 
     history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': []}
     best_val_loss = float('inf')
