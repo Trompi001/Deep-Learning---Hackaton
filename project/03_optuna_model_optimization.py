@@ -375,6 +375,11 @@ def parse_args():
     parser.add_argument('--model-out', type=str, default='models/cnn_zurich_optuna_best.pt', help='Pfad fuer bestes Modell.')
     parser.add_argument('--plot-out', type=str, default='plot/optuna_model_training_learning_curve.png', help='Pfad fuer Lernkurven-Plot.')
     parser.add_argument('--cm-out', type=str, default='plot/optuna_test_confusion_matrix.png', help='Pfad fuer Confusion Matrix.')
+    parser.add_argument(
+        '--no-warm-start',
+        action='store_true',
+        help='Trainiert alle Modelle im Tuning von Grund auf (from scratch), ohne ein vortrainiertes Basismodell zu laden.',
+    )
     return parser.parse_args()
 
 
@@ -387,28 +392,33 @@ def main() -> None:
         raise FileNotFoundError(f'Datenordner nicht gefunden: {data_dir}')
 
     model_out = resolve_from_script_dir(args.model_out)
-    base_model = resolve_from_script_dir(args.base_model)
     plot_out = resolve_from_script_dir(args.plot_out)
     cm_out = resolve_from_script_dir(args.cm_out)
     model_out.parent.mkdir(parents=True, exist_ok=True)
 
-    # Fallback-Regelung falls der standardmäßige Tippfehler-Pfad des Base-Modells fehlt
-    if not base_model.exists():
-        fallback_model = resolve_from_script_dir('models/Simple_CNN_zurich.pt')
-        if fallback_model.exists():
-            print(
-                f'Base-Modell nicht gefunden unter {base_model}, nutze Fallback {fallback_model}.'
-            )
-            base_model = fallback_model
-        else:
-            raise FileNotFoundError(
-                f'Base-Modell nicht gefunden: {base_model} (auch Fallback fehlt: {fallback_model})'
-            )
+    base_model = None
+    if not args.no_warm_start:
+        base_model = resolve_from_script_dir(args.base_model)
+        # Fallback-Regelung falls der standardmäßige Tippfehler-Pfad des Base-Modells fehlt
+        if not base_model.exists():
+            fallback_model = resolve_from_script_dir('models/Simple_CNN_zurich.pt')
+            if fallback_model.exists():
+                print(
+                    f'Base-Modell nicht gefunden unter {base_model}, nutze Fallback {fallback_model}.'
+                )
+                base_model = fallback_model
+            else:
+                raise FileNotFoundError(
+                    f'Base-Modell nicht gefunden: {base_model} (auch Fallback fehlt: {fallback_model})'
+                )
 
     device = get_device()
     max_batches = None if args.max_train_batches <= 0 else args.max_train_batches
     print(f'Nutze Device: {device}')
-    print(f'Verbessere Base-Modell: {base_model}')
+    if base_model is not None:
+        print(f'Verbessere Base-Modell (Warm Start): {base_model}')
+    else:
+        print('Trainiere von Grund auf (kein Warm-Start).')
 
     def objective(trial: optuna.Trial) -> float:
         """Die Zielfunktion für Optuna. Definiert den Hyperparameter-Suchraum, 
@@ -435,9 +445,10 @@ def main() -> None:
             positive_multiplier=positive_multiplier,
         )
 
-        # Modell laden und warmstarten (Laden der bestehenden Gewichte)
+        # Modell laden und optional warmstarten (Laden der bestehenden Gewichte)
         model = SimpleCNN(num_classes=2, dropout_p=dropout_p).to(device)
-        load_checkpoint_into_model(model, base_model, device)
+        if base_model is not None:
+            load_checkpoint_into_model(model, base_model, device)
         criterion = nn.CrossEntropyLoss()
         optimizer = make_optimizer(optimizer_name, model, learning_rate, weight_decay)
 
@@ -514,8 +525,9 @@ def main() -> None:
 
     # Modell neu initialisieren mit bestem Dropout
     model = SimpleCNN(num_classes=2, dropout_p=params['dropout']).to(device)
-    # Erneuter Warmstart
-    load_checkpoint_into_model(model, base_model, device)
+    # Optionaler Warmstart
+    if base_model is not None:
+        load_checkpoint_into_model(model, base_model, device)
     criterion = nn.CrossEntropyLoss()
     optimizer = make_optimizer(params['optimizer'], model, params['lr'], params['weight_decay'])
 

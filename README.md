@@ -41,7 +41,6 @@ Das Skript `project/01_data_split.py` teilt die Rohbilder aus den Klassenordnern
   * **Val (15%):** 6'959 Bilder
   * **Test (15%):** 6'962 Bilder
 
-
 ---
 
 ## 🧠 Modelltraining im Detail
@@ -52,19 +51,22 @@ Das Projekt untersucht zwei Trainingsansätze sowie ein automatisiertes Hyperpar
 
 Dieses Modul trainiert ein einfaches, dreistufiges Faltungsnetzwerk (CNN) von Grund auf.
 
-* **Modellarchitektur (`SimpleCNN`):**
-  * **Feature Extractor:** Drei aufeinanderfolgende Convolutional-Blöcke. Jeder Block besteht aus einer Faltungsschicht (`nn.Conv2d` mit 3x3 Kernel, Stride=1 und Padding=1), einer Aktivierungsfunktion (`nn.ReLU`) und einer Pooling-Schicht (`nn.MaxPool2d` mit einer Fenstergröße von 2x2). Die Anzahl der Feature-Maps erhöht sich stufenweise von 3 (RGB-Kanäle) auf 16, 32 und schließlich 64 Kanäle.
-  * **Klassifikationskopf:** Ein globales Mittelwert-Pooling (`nn.AdaptiveAvgPool2d((1, 1))`) reduziert die räumlichen Dimensionen der letzten Feature-Map auf 1x1, wodurch das Modell invariant gegenüber wechselnden Bildgrößen wird. Nach dem Glätten (`nn.Flatten`) folgt eine Dropout-Schicht (`p=0.3`) zur Regularisierung gegen Overfitting sowie ein linearer Layer (`nn.Linear`), der die finalen 2 Logits für die binäre Entscheidung ausgibt.
-* **Kompensation der Klassenimbalance (Oversampling):**
-  * Da die Klasse `y` stark unterrepräsentiert ist, wird ein **Oversampling** angewendet. Über einen Multiplikator (`positive_multiplier`) werden die Indizes der positiven Bilder im Trainingsdatensatz repliziert. Dadurch zieht der DataLoader diese Bilder häufiger, was das Ungleichgewicht ausgleicht.
+* **Modellstruktur (`SimpleCNN`):**
+  * **Feature Extractor (Faltungsbasis):** Drei aufeinanderfolgende Convolutional-Blöcke. Jeder Block besteht aus einer Faltungsschicht (`nn.Conv2d` mit 3x3-Kernel, Stride=1, Padding=1), einer ReLU-Aktivierungsfunktion (`nn.ReLU`) und einer Max-Pooling-Schicht (`nn.MaxPool2d` mit einer Fenstergröße von 2x2). Die Anzahl der Feature-Maps (Kanäle) erhöht sich stufenweise von 3 (RGB-Kanäle) auf 16, 32 und schließlich 64 Kanäle.
+  * **Klassifikationskopf (Classifier):** Ein globales Mittelwert-Pooling (`nn.AdaptiveAvgPool2d((1, 1))`) reduziert die räumlichen Dimensionen der letzten Feature-Map auf 1x1, wodurch das Modell invariant gegenüber der Eingangsgröße wird. Nach dem Glätten (`nn.Flatten`) folgt eine Dropout-Schicht (`p=0.3`) zur Regularisierung gegen Overfitting sowie ein linearer Layer (`nn.Linear`), der die finalen 2 Logits für die binäre Klassifikation ausgibt.
+* **Hyperparameter & Trainingssteuerung:**
+  * **Optimizer:** `Adam`
+  * **Lernrate (Learning Rate):** $10^{-3}$ (fest)
+  * **Batch-Größe:** 128
+  * **Maximale Epochen:** 100
+  * **Eingangs-Bildgröße:** 128x128 Pixel
+  * **Early Stopping:** Geduldszeit (Patience) von 6 Epochen mit einem Schwellenwert (`min_delta`) von $10^{-4}$ auf dem Validierungsverlust.
+  * **Kompensation der Klassenimbalance:** Index-Oversampling der unterrepräsentierten positiven Klasse `y` über den Faktor `positive_multiplier = 4` im DataLoader.
+  * **Verlustfunktion:** Standard `nn.CrossEntropyLoss` (ungewichtet, da die Klassenbalance bereits durch das Oversampling hergestellt wird).
 * **Datenaugmentierung (nur im Training):**
   * Zur Erhöhung der Generalisierungsfähigkeit werden die Trainingsbilder bei jedem Batch on-the-fly transformiert:
     * Zufällige Rotation um $0^\circ, 90^\circ, 180^\circ$ oder $270^\circ$ (`transforms.RandomChoice`).
     * Zufällige horizontale Spiegelung (`transforms.RandomHorizontalFlip`, `p=0.5`).
-* **Optimierung & Trainingssteuerung:**
-  * **Verlustfunktion:** Standard `nn.CrossEntropyLoss` (ungewichtet, da die Balance bereits durch die Datenstruktur des Dataloaders hergestellt wird).
-  * **Optimizer:** `Adam` mit einer Lernrate von $10^{-3}$.
-  * **Early Stopping:** Das Training bricht vorzeitig ab, wenn sich der Validierungsverlust über einen Zeitraum von `early-stopping-patience` (Standard: 6 Epochen) nicht um mindestens `early-stopping-min-delta` ($10^{-4}$) verbessert. Der beste Modellzustand wird gespeichert.
 
 ---
 
@@ -72,31 +74,37 @@ Dieses Modul trainiert ein einfaches, dreistufiges Faltungsnetzwerk (CNN) von Gr
 
 Dieses Skript nutzt ein auf ImageNet vor-trainiertes ResNet18-Modell und adaptiert es auf die Zielklassen.
 
-* **Modellarchitektur & Fine-Tuning:**
-  * Das ResNet18-Backbone wurde auf über einer Million Bildern trainiert und besitzt bereits universelle visuelle Repräsentationen (Kanten, Formen, Strukturen).
-  * Der ursprüngliche vollvernetzte Layer (`model.fc`) des ResNets wird durch einen neuen linearen Klassifikationslayer (`nn.Linear`) mit 2 Ausgangskanälen ersetzt.
-  * Da die Gewichte des Backbones bereits hochgradig optimiert sind, wird das gesamte Netzwerk mit einer sehr kleinen Lernrate ($5 \cdot 10^{-5}$) feingetunt, um das vortrainierte Wissen zu erhalten und nicht zu destabilisieren.
-* **Kompensation der Klassenimbalance (WeightedRandomSampler):**
-  * Statt Bilder explizit zu kopieren, wird hier PyTorchs `WeightedRandomSampler` im DataLoader verwendet. Jedes Bild erhält ein Gewicht, welches dem Kehrwert der Klassen-Häufigkeit entspricht (seltene positive Bilder erhalten ein ca. 20-fach höheres Gewicht als negative).
-  * Der DataLoader zieht Bilder basierend auf diesen Gewichten, sodass jeder Batch im Schnitt eine ausgewogene 50/50-Klassenverteilung aufweist.
-* **Datenaugmentierung & Normalisierung:**
-  * Die Augmentierung erfolgt analog zum Custom CNN.
-  * **Normalisierung:** Die Bildpixel werden mit dem ImageNet-Mittelwert `[0.485, 0.456, 0.406]` und der Standardabweichung `[0.229, 0.224, 0.225]` normalisiert, um sie an die Verteilung der Trainingsdaten des Originalmodells anzupassen.
-* **Optimierung & Trainingssteuerung:**
+* **Transfer-Learning-Ansatz (Fine-Tuning vs. Feature Extraction):**
+  * **Methode:** **Fine-Tuning (Feinabstimmung)**.
+  * **Begründung:** Im Gegensatz zur reinen *Feature Extraction*, bei der alle Gewichte des vor-trainierten Backbone-Netzwerks eingefroren werden (`requires_grad = False` für alle Layer außer dem neuen Klassifikationskopf), werden beim *Fine-Tuning* **alle Gewichte des gesamten Netzwerks** trainiert. Da das ResNet18 bereits ein exzellentes, universelles visuelles Verständnis besitzt (z. B. für Kanten, Kontraste und geometrische Muster), wird das gesamte Netzwerk mit einer sehr kleinen Lernrate ($5 \cdot 10^{-5}$) trainiert. Dadurch können sich die Filter des Backbones leicht an die spezifischen Texturen und geometrischen Eigenschaften von Fussgängerstreifen anpassen, ohne das erlernte Basiswissen zu zerstören. Dies führt zu einer tieferen Repräsentationsfähigkeit und maximiert die Generalisierung sowie den **Recall** auf der Zielaufgabe.
+* **Modellstruktur:**
+  * **Backbone:** ResNet18 (vortrainiert auf ImageNet mit den standardmäßig geladenen Gewichten `ResNet18_Weights.DEFAULT`).
+  * **Klassifikationskopf:** Die ursprüngliche vollvernetzte Schicht (`model.fc`) des ResNets (512 Eingangsmerkmale) wird durch eine neu initialisierte lineare Schicht (`nn.Linear(512, 2)`) mit 2 Ausgangskanälen für die binäre Entscheidung ersetzt.
+* **Hyperparameter & Trainingssteuerung:**
   * **Optimizer:** `AdamW` (L2-Regularisierung mittels entkoppeltem Weight Decay von $10^{-3}$ zur Minimierung von Overfitting).
-  * **Lernraten-Scheduler:** `CosineAnnealingLR` senkt die Lernrate über die Epochen hinweg sanft entlang einer Kosinuskurve ab. Dies ermöglicht eine präzise Konvergenz gegen Trainingsende.
-  * **Early Stopping:** Geduldszeit von 5 Epochen mit einem sehr sensitiven Schwellenwert (`min_delta`) von $10^{-6}$.
+  * **Lernrate (Learning Rate):** $5 \cdot 10^{-5}$ (sehr klein, um vortrainierte Filter schonend anzupassen).
+  * **Lernraten-Scheduler:** `CosineAnnealingLR` senkt die Lernrate über die Epochen hinweg sanft entlang einer Kosinuskurve ab, was eine präzise Konvergenz ermöglicht.
+  * **Batch-Größe:** 128
+  * **Maximale Epochen:** 30 (aufgrund des Transfer-Learnings ist die Konvergenz deutlich schneller als bei Training von Grund auf).
+  * **Eingangs-Bildgröße:** 128x128 Pixel
+  * **Datenaugmentierung & Normalisierung:**
+    * Augmentierung analog zum Custom CNN.
+    * **Normalisierung:** Die Bildpixel werden an den ImageNet-Mittelwert `[0.485, 0.456, 0.406]` und die Standardabweichung `[0.229, 0.224, 0.225]` angepasst.
+  * **Early Stopping:** Geduldszeit (Patience) von 5 Epochen mit einem sensitiven Schwellenwert (`min_delta`) von $10^{-6}$ auf dem Validierungsverlust.
+  * **Kompensation der Klassenimbalance (WeightedRandomSampler):**
+    * Statt Bilder explizit zu duplizieren, wird PyTorchs `WeightedRandomSampler` im DataLoader verwendet. Jedes Bild erhält ein gewicht, welches dem Kehrwert der Klassen-Häufigkeit entspricht (seltene positive Bilder erhalten ein ca. 20-fach höheres Gewicht als negative).
+    * Der DataLoader zieht Bilder basierend auf diesen Gewichten, sodass jeder Batch im Schnitt eine ausgewogene 50/50-Klassenverteilung aufweist.
 
 ---
 
-### 3️⃣ Hyperparameter-Optimierung mit Optuna (`project/04_optuna_model_optimization.py`)
+### 3️⃣ Hyperparameter-Optimierung mit Optuna (`project/03_optuna_model_optimization.py`)
 
 Führt eine automatisierte, intelligente Suche nach der optimalen Parameterkonfiguration für das Custom CNN durch.
 
 * **Ablauf & Pruning:**
   * Optuna führt eine definierte Anzahl von Durchläufen (Trials) aus. In jedem Trial wird das Modell mit einer bestimmten Hyperparameter-Kombination für eine geringe Epochenanzahl (Standard: 8) trainiert.
   * **MedianPruner:** Nach jeder Epoche gleicht Optuna den aktuellen Validierungsverlust mit den Median-Verläufen früherer Trials ab. Liegt der Trial signifikant zurück, wird er sofort abgebrochen (gepruned), was immense Rechenzeit einspart.
-  * **Transfer/Warm Start:** Jedes Trial startet mit dem Laden des vortrainierten Basismodells (`Simple_CNN_zurich.pt`) über `strict=False`, um eine kontinuierliche Verbesserung bestehender Gewichte zu erzielen.
+  * **Transfer/Warm Start:** Jedes Trial startet standardmäßig mit dem Laden des vortrainierten Basismodells (`Simple_CNN_zurich.pt`) über `strict=False`, um eine kontinuierliche Verbesserung bestehender Gewichte zu erzielen. Dies kann durch die Verwendung des Parameters `--no-warm-start` deaktiviert werden, sodass alle Modelle im Tuning komplett von Grund auf (*from scratch*) trainiert werden.
 * **Suchraum der Hyperparameter:**
   * Lernrate (`lr`): Logarithmisch-gleichmäßig verteilt zwischen $10^{-5}$ und $5 \cdot 10^{-3}$.
   * Optimizer: Kategorische Auswahl aus `adam`, `adamw` und `sgd` (mit Momentum 0.9).
@@ -107,16 +115,9 @@ Führt eine automatisierte, intelligente Suche nach der optimalen Parameterkonfi
   * Oversampling-Faktor (`positive_multiplier`): Ganzzahlige Werte zwischen $1$ und $6$.
 * **Finalisierung:**
   * Nach Beendigung der Suche wird das Modell mit den besten Parametern über die volle Epochenanzahl (Standard: 100) mit maximaler Patience trainiert und als finaler Checkpoint (`cnn_zurich_optuna_best.pt`) abgelegt.
-
----
-
-## 🔍 Datensatz verbessern & Active Learning (`project/03_improve_dataset.py`)
-
-Dieses Skript implementiert einen Active-Learning-Ansatz zur qualitativen Aufwertung und Vergrößerung des Datensatzes.
-
-* **Modellgestützte Vorhersage:** Das Skript lädt das beste trainierte Modell (z. B. den Optuna-Best-Checkpoint) und klassifiziert einen ungelabelten oder bisher rein negativen Bildpool (z. B. Winterthur).
-* **Wahrscheinlichkeitsfilter:** Mittels einer Softmax-Aktivierung auf den Ausgangs-Logits wird die Wahrscheinlichkeit berechnet, mit der ein Bild zur positiven Klasse `y` gehört.
-* **Mining & Export:** Alle Bilder, deren Wahrscheinlichkeit den Schwellenwert (`THRESHOLD`, Standard: 0.5) erreicht, werden kopiert oder verschoben. Parallel dazu wird eine JSON-Datei (`positives.json`) mit den Dateipfaden und den exakten Konfidenzwerten angelegt. Diese gefilterten Bilder können manuell nachkontrolliert werden, um neue, seltene Positivbeispiele für zukünftige Trainingsläufe zu sichern.
+* **Ergebnisreproduzierbarkeit (Optuna vs. Normales Training):**
+  * Die im Optuna-Skript erzielen Höchstleistungen (z. B. Accuracy von 99.55% und F1-Score von 95.30%) konnten im normalen Training ([02.1_train_CNN_model.py](file:///c:/Users/gartm/dev/4.%20Semester/Deeplearning/Deep-Learning---Hackaton/project/02.1_train_CNN_model.py)) selbst mit identischen Hyperparametern nicht wieder erreicht werden.
+  * **Begründung (Warm Start):** Das Optuna-Skript verwendet sowohl während der Tuning-Trials als auch im finalen Trainingsschritt einen **Warm Start** (`load_checkpoint_into_model`), indem es das bereits vortrainierte Basismodell ([Simple_CNN_zurich.pt](file:///c:/Users/gartm/dev/4.%20Semester/Deeplearning/Deep-Learning---Hackaton/project/models/Simple_CNN_zurich.pt)) lädt. Das Modell lernt somit kontinuierlich auf bereits hochgradig optimierten Gewichten weiter. Im normalen Trainingsskript wird das Modell hingegen von Grund auf mit zufälligen Gewichten initialisiert (training *from scratch*). Ohne dieses vortrainierte Fundament konvergiert das Netz in anderen lokalen Minima und erreicht die exzellente Leistung des Warm-Starts nicht.
 
 ---
 
