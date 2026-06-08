@@ -1,0 +1,102 @@
+Nutze Device: cuda
+Klassen-Mapping: {'n': 0, 'y': 1}
+Datensätze: train=37136 (basis=32480, positive_multiplier=4), val=6959, test=6963
+Epoch 01/100 | train_loss=0.4239, train_acc=0.8296, train_recall=0.0060, train_f1=0.0116 | val_loss=0.2190, val_acc=0.9461, val_recall=0.0120, val_f1=0.0209
+Epoch 02/100 | train_loss=0.3859, train_acc=0.8309, train_recall=0.0623, train_f1=0.1097 | val_loss=0.2065, val_acc=0.9404, val_recall=0.1024, val_f1=0.1408
+Epoch 03/100 | train_loss=0.3656, train_acc=0.8403, train_recall=0.1751, train_f1=0.2682 | val_loss=0.2580, val_acc=0.9251, val_recall=0.3976, val_f1=0.3363
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 04/100 | train_loss=0.3507, train_acc=0.8506, train_recall=0.2492, train_f1=0.3581 | val_loss=0.1869, val_acc=0.9428, val_recall=0.2048, val_f1=0.2547
+Epoch 05/100 | train_loss=0.3327, train_acc=0.8614, train_recall=0.2964, train_f1=0.4169 | val_loss=0.2024, val_acc=0.9488, val_recall=0.3645, val_f1=0.4047
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 06/100 | train_loss=0.3051, train_acc=0.8804, train_recall=0.3808, train_f1=0.5156 | val_loss=0.1636, val_acc=0.9636, val_recall=0.3012, val_f1=0.4415
+Epoch 07/100 | train_loss=0.2806, train_acc=0.8969, train_recall=0.4509, train_f1=0.5939 | val_loss=0.1557, val_acc=0.9575, val_recall=0.1596, val_f1=0.2637
+Epoch 08/100 | train_loss=0.3760, train_acc=0.8362, train_recall=0.0966, train_f1=0.1647 | val_loss=0.1923, val_acc=0.9468, val_recall=0.0783, val_f1=0.1232
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 09/100 | train_loss=0.3014, train_acc=0.8815, train_recall=0.3805, train_f1=0.5178 | val_loss=0.1659, val_acc=0.9595, val_recall=0.5723, val_f1=0.5740
+Keine ausreichende Verbesserung der Val-Loss seit 2 Epoche(n) (patience=6).
+Epoch 10/100 | train_loss=0.2473, train_acc=0.9130, train_recall=0.5395, train_f1=0.6747 | val_loss=0.1202, val_acc=0.9710, val_recall=0.5783, val_f1=0.6553
+Epoch 11/100 | train_loss=0.2262, train_acc=0.9230, train_recall=0.5928, train_f1=0.7201 | val_loss=0.1074, val_acc=0.9727, val_recall=0.4849, val_f1=0.6289
+Epoch 12/100 | train_loss=0.2157, train_acc=0.9265, train_recall=0.6169, train_f1=0.7373 | val_loss=0.1358, val_acc=0.9588, val_recall=0.1386, val_f1=0.2427
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 13/100 | train_loss=0.2110, train_acc=0.9303, train_recall=0.6353, train_f1=0.7530 | val_loss=0.1615, val_acc=0.9632, val_recall=0.6928, val_f1=0.6425
+Keine ausreichende Verbesserung der Val-Loss seit 2 Epoche(n) (patience=6).
+Epoch 14/100 | train_loss=0.2061, train_acc=0.9322, train_recall=0.6461, train_f1=0.7612 | val_loss=0.1098, val_acc=0.9747, val_recall=0.6446, val_f1=0.7086
+Keine ausreichende Verbesserung der Val-Loss seit 3 Epoche(n) (patience=6).
+Epoch 15/100 | train_loss=0.1965, train_acc=0.9352, train_recall=0.6624, train_f1=0.7736 | val_loss=0.1132, val_acc=0.9757, val_recall=0.6657, val_f1=0.7234
+Keine ausreichende Verbesserung der Val-Loss seit 4 Epoche(n) (patience=6).
+Epoch 16/100 | train_loss=0.1907, train_acc=0.9380, train_recall=0.6754, train_f1=0.7846 | val_loss=0.0978, val_acc=0.9783, val_recall=0.6295, val_f1=0.7346
+Epoch 17/100 | train_loss=0.1830, train_acc=0.9394, train_recall=0.6843, train_f1=0.7905 | val_loss=0.1344, val_acc=0.9734, val_recall=0.7440, val_f1=0.7275
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 18/100 | train_loss=0.1746, train_acc=0.9429, train_recall=0.7010, train_f1=0.8040 | val_loss=0.1913, val_acc=0.9645, val_recall=0.7681, val_f1=0.6737
+Keine ausreichende Verbesserung der Val-Loss seit 2 Epoche(n) (patience=6).
+Epoch 19/100 | train_loss=0.1796, train_acc=0.9422, train_recall=0.6976, train_f1=0.8014 | val_loss=0.0789, val_acc=0.9812, val_recall=0.6717, val_f1=0.7730
+Epoch 20/100 | train_loss=0.1635, train_acc=0.9470, train_recall=0.7223, train_f1=0.8201 | val_loss=0.1177, val_acc=0.9746, val_recall=0.7801, val_f1=0.7453
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 21/100 | train_loss=0.1512, train_acc=0.9500, train_recall=0.7408, train_f1=0.8320 | val_loss=0.1041, val_acc=0.9783, val_recall=0.7651, val_f1=0.7709
+Keine ausreichende Verbesserung der Val-Loss seit 2 Epoche(n) (patience=6).
+Epoch 22/100 | train_loss=0.1442, train_acc=0.9529, train_recall=0.7543, train_f1=0.8426 | val_loss=0.1940, val_acc=0.9644, val_recall=0.8494, val_f1=0.6946
+Keine ausreichende Verbesserung der Val-Loss seit 3 Epoche(n) (patience=6).
+Epoch 23/100 | train_loss=0.1448, train_acc=0.9526, train_recall=0.7560, train_f1=0.8419 | val_loss=0.0815, val_acc=0.9836, val_recall=0.7500, val_f1=0.8137
+Keine ausreichende Verbesserung der Val-Loss seit 4 Epoche(n) (patience=6).
+Epoch 24/100 | train_loss=0.1268, train_acc=0.9588, train_recall=0.7896, train_f1=0.8650 | val_loss=0.0891, val_acc=0.9810, val_recall=0.8524, val_f1=0.8109
+Keine ausreichende Verbesserung der Val-Loss seit 5 Epoche(n) (patience=6).
+Epoch 25/100 | train_loss=0.1127, train_acc=0.9619, train_recall=0.8054, train_f1=0.8761 | val_loss=0.0617, val_acc=0.9876, val_recall=0.8012, val_f1=0.8608
+Epoch 26/100 | train_loss=0.1112, train_acc=0.9632, train_recall=0.8123, train_f1=0.8808 | val_loss=0.0474, val_acc=0.9881, val_recall=0.8223, val_f1=0.8680
+Epoch 27/100 | train_loss=0.1039, train_acc=0.9656, train_recall=0.8233, train_f1=0.8889 | val_loss=0.1052, val_acc=0.9777, val_recall=0.9247, val_f1=0.7984
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 28/100 | train_loss=0.1053, train_acc=0.9662, train_recall=0.8294, train_f1=0.8914 | val_loss=0.2590, val_acc=0.9530, val_recall=0.9127, val_f1=0.6495
+Keine ausreichende Verbesserung der Val-Loss seit 2 Epoche(n) (patience=6).
+Epoch 29/100 | train_loss=0.1052, train_acc=0.9670, train_recall=0.8301, train_f1=0.8938 | val_loss=0.0442, val_acc=0.9894, val_recall=0.7982, val_f1=0.8775
+Epoch 30/100 | train_loss=0.1039, train_acc=0.9671, train_recall=0.8338, train_f1=0.8946 | val_loss=0.0420, val_acc=0.9904, val_recall=0.8675, val_f1=0.8958
+Epoch 31/100 | train_loss=0.0964, train_acc=0.9697, train_recall=0.8431, train_f1=0.9029 | val_loss=0.0543, val_acc=0.9885, val_recall=0.8946, val_f1=0.8813
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 32/100 | train_loss=0.0785, train_acc=0.9742, train_recall=0.8723, train_f1=0.9187 | val_loss=0.0403, val_acc=0.9905, val_recall=0.8675, val_f1=0.8972
+Epoch 33/100 | train_loss=0.0717, train_acc=0.9768, train_recall=0.8855, train_f1=0.9272 | val_loss=0.0470, val_acc=0.9885, val_recall=0.9157, val_f1=0.8837
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 34/100 | train_loss=0.0831, train_acc=0.9741, train_recall=0.8705, train_f1=0.9182 | val_loss=0.0600, val_acc=0.9865, val_recall=0.9066, val_f1=0.8649
+Keine ausreichende Verbesserung der Val-Loss seit 2 Epoche(n) (patience=6).
+Epoch 35/100 | train_loss=0.0678, train_acc=0.9782, train_recall=0.8930, train_f1=0.9318 | val_loss=0.0358, val_acc=0.9915, val_recall=0.8434, val_f1=0.9047
+Epoch 36/100 | train_loss=0.0654, train_acc=0.9787, train_recall=0.8953, train_f1=0.9335 | val_loss=0.0287, val_acc=0.9941, val_recall=0.8946, val_f1=0.9354
+Epoch 37/100 | train_loss=0.0639, train_acc=0.9799, train_recall=0.9021, train_f1=0.9374 | val_loss=0.0338, val_acc=0.9925, val_recall=0.8825, val_f1=0.9185
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 38/100 | train_loss=0.0634, train_acc=0.9797, train_recall=0.9001, train_f1=0.9369 | val_loss=0.0373, val_acc=0.9908, val_recall=0.9367, val_f1=0.9067
+Keine ausreichende Verbesserung der Val-Loss seit 2 Epoche(n) (patience=6).
+Epoch 39/100 | train_loss=0.0687, train_acc=0.9788, train_recall=0.8955, train_f1=0.9338 | val_loss=0.0370, val_acc=0.9922, val_recall=0.9307, val_f1=0.9196
+Keine ausreichende Verbesserung der Val-Loss seit 3 Epoche(n) (patience=6).
+Epoch 40/100 | train_loss=0.0569, train_acc=0.9821, train_recall=0.9129, train_f1=0.9447 | val_loss=0.0356, val_acc=0.9917, val_recall=0.8554, val_f1=0.9073
+Keine ausreichende Verbesserung der Val-Loss seit 4 Epoche(n) (patience=6).
+Epoch 41/100 | train_loss=0.0581, train_acc=0.9819, train_recall=0.9127, train_f1=0.9439 | val_loss=0.0282, val_acc=0.9935, val_recall=0.9157, val_f1=0.9311
+Epoch 42/100 | train_loss=0.0534, train_acc=0.9834, train_recall=0.9201, train_f1=0.9488 | val_loss=0.0302, val_acc=0.9934, val_recall=0.9307, val_f1=0.9307
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 43/100 | train_loss=0.0531, train_acc=0.9837, train_recall=0.9219, train_f1=0.9496 | val_loss=0.0258, val_acc=0.9937, val_recall=0.9157, val_f1=0.9325
+Epoch 44/100 | train_loss=0.0585, train_acc=0.9821, train_recall=0.9117, train_f1=0.9444 | val_loss=0.0607, val_acc=0.9884, val_recall=0.7590, val_f1=0.8615
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 45/100 | train_loss=0.0526, train_acc=0.9839, train_recall=0.9230, train_f1=0.9504 | val_loss=0.0294, val_acc=0.9938, val_recall=0.9217, val_f1=0.9344
+Keine ausreichende Verbesserung der Val-Loss seit 2 Epoche(n) (patience=6).
+Epoch 46/100 | train_loss=0.0529, train_acc=0.9837, train_recall=0.9222, train_f1=0.9497 | val_loss=0.0249, val_acc=0.9934, val_recall=0.9458, val_f1=0.9318
+Epoch 47/100 | train_loss=0.0510, train_acc=0.9845, train_recall=0.9262, train_f1=0.9522 | val_loss=0.0354, val_acc=0.9914, val_recall=0.9458, val_f1=0.9128
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 48/100 | train_loss=0.0504, train_acc=0.9845, train_recall=0.9246, train_f1=0.9524 | val_loss=0.0248, val_acc=0.9937, val_recall=0.9337, val_f1=0.9337
+Keine ausreichende Verbesserung der Val-Loss seit 2 Epoche(n) (patience=6).
+Epoch 49/100 | train_loss=0.0468, train_acc=0.9858, train_recall=0.9323, train_f1=0.9563 | val_loss=0.0340, val_acc=0.9917, val_recall=0.9428, val_f1=0.9152
+Keine ausreichende Verbesserung der Val-Loss seit 3 Epoche(n) (patience=6).
+Epoch 50/100 | train_loss=0.0486, train_acc=0.9852, train_recall=0.9286, train_f1=0.9545 | val_loss=0.0357, val_acc=0.9937, val_recall=0.9096, val_f1=0.9321
+Keine ausreichende Verbesserung der Val-Loss seit 4 Epoche(n) (patience=6).
+Epoch 51/100 | train_loss=0.0534, train_acc=0.9842, train_recall=0.9232, train_f1=0.9514 | val_loss=0.0243, val_acc=0.9944, val_recall=0.9367, val_f1=0.9410
+Epoch 52/100 | train_loss=0.0510, train_acc=0.9845, train_recall=0.9275, train_f1=0.9523 | val_loss=0.0246, val_acc=0.9947, val_recall=0.9428, val_f1=0.9442
+Keine ausreichende Verbesserung der Val-Loss seit 1 Epoche(n) (patience=6).
+Epoch 53/100 | train_loss=0.0439, train_acc=0.9868, train_recall=0.9389, train_f1=0.9595 | val_loss=0.0258, val_acc=0.9944, val_recall=0.9277, val_f1=0.9405
+Keine ausreichende Verbesserung der Val-Loss seit 2 Epoche(n) (patience=6).
+Epoch 54/100 | train_loss=0.0561, train_acc=0.9832, train_recall=0.9193, train_f1=0.9482 | val_loss=0.0267, val_acc=0.9944, val_recall=0.9096, val_f1=0.9393
+Keine ausreichende Verbesserung der Val-Loss seit 3 Epoche(n) (patience=6).
+Epoch 55/100 | train_loss=0.0440, train_acc=0.9872, train_recall=0.9401, train_f1=0.9608 | val_loss=0.0447, val_acc=0.9920, val_recall=0.8434, val_f1=0.9091
+Keine ausreichende Verbesserung der Val-Loss seit 4 Epoche(n) (patience=6).
+Epoch 56/100 | train_loss=0.0415, train_acc=0.9875, train_recall=0.9420, train_f1=0.9618 | val_loss=0.0542, val_acc=0.9874, val_recall=0.9608, val_f1=0.8788
+Keine ausreichende Verbesserung der Val-Loss seit 5 Epoche(n) (patience=6).
+Epoch 57/100 | train_loss=0.0431, train_acc=0.9869, train_recall=0.9393, train_f1=0.9598 | val_loss=0.0313, val_acc=0.9925, val_recall=0.8554, val_f1=0.9161
+Keine ausreichende Verbesserung der Val-Loss seit 6 Epoche(n) (patience=6).
+Early Stopping nach Epoche 57: best_val_loss=0.0243
+Bestes Modell gespeichert unter: /home/gartmaflorin@edu.local/Deep-Learning---Hackaton/project/models/Simple_CNN_zurich.pt
+Lernkurven gespeichert unter: /home/gartmaflorin@edu.local/Deep-Learning---Hackaton/project/plot/CNN_model_training_learning_curve.png
+Test: loss=0.0268, accuracy=0.9943, recall=0.9371, f1=0.9399
+Confusion-Matrix gespeichert unter: /home/gartmaflorin@edu.local/Deep-Learning---Hackaton/project/plot/CNN_model_training_confusion_matrix.png

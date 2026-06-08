@@ -1,0 +1,7 @@
+Split abgeschlossen.
+Negativ (n): 44184 Bilder
+Positiv (y): 2218 Bilder
+Train: 32480 Bilder
+Val:   6959 Bilder
+Test:  6963 Bilder
+Output: /home/gartmaflorin@edu.local/Deep-Learning---Hackaton/data/zürich/split
